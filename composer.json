@@ -1,0 +1,28 @@
+{
+    "name": "phoenix/framework",
+    "description": "Phoenix v2 - Rust-inspired PHP Framework with MVC + MVVM + State Machine",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "psr/container": "^2.0",
+        "psr/simple-cache": "^3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phoenix\\": "src/",
+            "App\\": "app/"
+        },
+        "files": [
+            "src/Support/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    }
+}
