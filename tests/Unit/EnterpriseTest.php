@@ -16,6 +16,7 @@ final class EnterpriseTest extends TestCase
     protected function setUp(): void
     {
         $this->testDir = sys_get_temp_dir() . '/phoenix_test_' . uniqid();
+        RateLimiter::flushMemory();
     }
 
     protected function tearDown(): void
