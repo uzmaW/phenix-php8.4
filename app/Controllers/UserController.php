@@ -3,8 +3,7 @@
 namespace App\Controllers;
 
 use App\Auth\User;
-use App\Auth\States\UserState;
-use Phoenix\Database\Connection;
+use Phoenix\Core\ServiceLocator;
 use Phoenix\View\Factory;
 
 class UserController
@@ -14,7 +13,8 @@ class UserController
         $success = $_SESSION['user_created'] ?? null;
         unset($_SESSION['user_created']);
 
-        $stmt = Connection::get()->prepare("SELECT * FROM users ORDER BY id DESC");
+        $repo = ServiceLocator::get(\App\Repositories\UserRepository::class);
+        $stmt = \Phoenix\Database\Connection::get()->prepare("SELECT * FROM users ORDER BY id DESC");
         $stmt->execute();
         $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
@@ -31,14 +31,19 @@ class UserController
     {
         $id = $_GET['id'] ?? 1;
 
-        $stmt = Connection::get()->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
-        $stmt->execute([$id]);
-        $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $repo = ServiceLocator::get(\App\Repositories\UserRepository::class);
+        $user = $repo->find((int) $id);
+
+        $userData = $user ? [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ] : null;
 
         return Factory::make('layouts/app', [
-            'title' => ($user['name'] ?? 'User') . ' - Phoenix Framework',
+            'title' => ($user->name ?? 'User') . ' - Phoenix Framework',
             'content' => Factory::make('users/show', [
-                'user' => $user ?: null,
+                'user' => $userData,
             ])->render(),
         ])->render();
     }
@@ -49,7 +54,7 @@ class UserController
         $email = $_POST['email'] ?? '';
 
         if ($name && $email) {
-            $stmt = Connection::get()->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+            $stmt = \Phoenix\Database\Connection::get()->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
             $stmt->execute([$name, $email]);
             $_SESSION['user_created'] = "User \"{$name}\" created successfully.";
         }

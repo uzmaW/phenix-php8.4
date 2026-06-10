@@ -5,6 +5,9 @@ composer.lock
 /storage/framework/cache/*
 !/storage/framework/cache/.gitkeep
 
+/storage/database/*
+!/storage/database/.gitkeep
+
 /storage/framework/routes.php
 
 /storage/uploads/*

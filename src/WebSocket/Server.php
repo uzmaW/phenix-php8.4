@@ -193,15 +193,21 @@ class Server
     {
         $frame = $this->encode(json_encode($msg));
         $frameLen = strlen($frame);
+        $toDisconnect = [];
 
         foreach ($this->clients as $id => $client) {
             if ($client['handshake'] && $client['user']) {
                 $currentLen = strlen($this->writeBuffer[$id] ?? '');
                 if ($currentLen + $frameLen > $this->maxWriteBuffer) {
-                    $this->writeBuffer[$id] = '';
+                    $toDisconnect[] = $client['socket'];
+                    continue;
                 }
                 $this->writeBuffer[$id] = ($this->writeBuffer[$id] ?? '') . $frame;
             }
+        }
+
+        foreach ($toDisconnect as $socket) {
+            $this->disconnect($socket);
         }
     }
 

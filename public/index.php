@@ -1,22 +1,35 @@
 <?php
 
+session_start();
+
 require __DIR__ . '/../vendor/autoload.php';
 
-use Phoenix\Core\{Container, ServiceLocator};
-use Phoenix\Database\Connection;
+use Phoenix\Core\{Container, ServiceLocator, RequestLifecycle};
+use Phoenix\Database\{Connection, DatabaseManager};
 use Phoenix\View\Factory;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 
-// Setup in-memory DB for demo
-$pdo = Connection::get();
-$pdo->exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)");
-$pdo->exec("INSERT OR IGNORE INTO users (id, name, email) VALUES (1, 'John', 'john@example.com')");
-
-// DI Container
+// Bootstrap
 $container = new Container();
-$container->set(UserRepository::class, fn() => new UserRepository());
 ServiceLocator::set($container);
+
+// Register cleanup for static caches
+RequestLifecycle::register();
+
+// Database setup - file-based SQLite (persists across requests)
+$dbManager = DatabaseManager::getInstance();
+$dbManager->configureConnection();
+$ran = $dbManager->runMigrations();
+
+if (!empty($ran)) {
+    // Seed on first run
+    $seeder = new \Database\Seeders\UserSeeder();
+    $seeder->run();
+}
+
+// Register repositories
+$container->set(UserRepository::class, fn() => new UserRepository());
 
 // Test mode for demo
 AuthService::setTestMode(true);
@@ -27,5 +40,10 @@ Factory::init(
     dirname(__DIR__) . '/storage/views'
 );
 
-echo "Phoenix Framework v2 Ready!\n";
-echo "Routes available: /, /about, /users, /users/{id}\n";
+// Route to controller
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+require dirname(__DIR__) . '/app/routes.php';
+
+$router->dispatch($uri, $method);

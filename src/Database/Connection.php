@@ -48,7 +48,7 @@ final class Connection
 
         if (isset(self::$statementCache[$cacheKey])) {
             $stmt = self::$statementCache[$cacheKey];
-            if ($stmt->getColumnMeta(0) !== false || !$stmt->errorCode() || $stmt->errorCode() === '00000') {
+            if ($stmt->errorCode() === '00000') {
                 $stmt->closeCursor();
                 return $stmt;
             }

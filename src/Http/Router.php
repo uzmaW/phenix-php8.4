@@ -6,13 +6,11 @@ class Router
 {
     private array $routes = [];
     private array $compiledRoutes = [];
-    private static array $allRoutes = [];
 
     public function get(string $path, callable|array $handler): self
     {
         $path = trim($path, '/');
         $this->routes['GET'][$path] = $handler;
-        self::$allRoutes['GET'][$path] = $handler;
         $this->compiledRoutes = [];
         return $this;
     }
@@ -21,7 +19,6 @@ class Router
     {
         $path = trim($path, '/');
         $this->routes['POST'][$path] = $handler;
-        self::$allRoutes['POST'][$path] = $handler;
         $this->compiledRoutes = [];
         return $this;
     }
@@ -30,7 +27,6 @@ class Router
     {
         $path = trim($path, '/');
         $this->routes['PUT'][$path] = $handler;
-        self::$allRoutes['PUT'][$path] = $handler;
         $this->compiledRoutes = [];
         return $this;
     }
@@ -39,7 +35,6 @@ class Router
     {
         $path = trim($path, '/');
         $this->routes['DELETE'][$path] = $handler;
-        self::$allRoutes['DELETE'][$path] = $handler;
         $this->compiledRoutes = [];
         return $this;
     }
@@ -72,15 +67,9 @@ class Router
         return $this->routes;
     }
 
-    public static function getAllRoutes(): array
-    {
-        return self::$allRoutes;
-    }
-
     public function clearRoutes(): void
     {
         $this->routes = [];
         $this->compiledRoutes = [];
-        self::$allRoutes = [];
     }
 }
