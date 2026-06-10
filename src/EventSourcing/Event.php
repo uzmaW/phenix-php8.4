@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\EventSourcing;
 
 abstract class Event
@@ -20,7 +21,7 @@ abstract class Event
             'event_id' => $this->eventId,
             'event_name' => $this->getEventName(),
             'occurred_on' => $this->occurredOn,
-            'payload' => $this->getPayload()
+            'payload' => $this->getPayload(),
         ];
     }
 

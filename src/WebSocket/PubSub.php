@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\WebSocket;
 
 final class PubSub
@@ -13,7 +14,7 @@ final class PubSub
         $this->channel = $channel;
         $this->pubsubDir = $dir ?? sys_get_temp_dir() . '/phoenix_pubsub_' . $channel;
         if (!is_dir($this->pubsubDir)) {
-            mkdir($this->pubsubDir, 0755, true);
+            mkdir($this->pubsubDir, 0o755, true);
         }
     }
 
@@ -21,7 +22,7 @@ final class PubSub
     {
         $data = json_encode($message);
         self::$counter++;
-        $filename = $this->pubsubDir . '/' . str_pad((string)self::$counter, 10, '0', STR_PAD_LEFT) . '.json';
+        $filename = $this->pubsubDir . '/' . str_pad((string) self::$counter, 10, '0', STR_PAD_LEFT) . '.json';
         file_put_contents($filename, $data);
         $this->cleanup(10);
     }
@@ -48,6 +49,7 @@ final class PubSub
                 unlink($file);
             }
         }
+
         return $messages;
     }
 
@@ -55,7 +57,7 @@ final class PubSub
     {
         $files = glob($this->pubsubDir . '/*.json');
         if (count($files) > $maxFiles) {
-            usort($files, fn($a, $b) => filemtime($a) - filemtime($b));
+            usort($files, fn ($a, $b) => filemtime($a) - filemtime($b));
             $toRemove = array_slice($files, 0, count($files) - $maxFiles);
             foreach ($toRemove as $file) {
                 @unlink($file);

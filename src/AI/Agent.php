@@ -23,7 +23,7 @@ class Agent
         string $goal = 'Help users achieve their goals',
         ?string $apiKey = null,
         string $model = 'gpt-4o',
-        string $apiUrl = 'https://api.openai.com/v1/chat/completions'
+        string $apiUrl = 'https://api.openai.com/v1/chat/completions',
     ) {
         $this->name = $name;
         $this->role = $role;
@@ -33,10 +33,22 @@ class Agent
         $this->apiUrl = $apiUrl;
     }
 
-    public function getName(): string { return $this->name; }
-    public function getRole(): string { return $this->role; }
-    public function getGoal(): string { return $this->goal; }
-    public function getMemory(): array { return $this->memory; }
+    public function getName(): string
+    {
+        return $this->name;
+    }
+    public function getRole(): string
+    {
+        return $this->role;
+    }
+    public function getGoal(): string
+    {
+        return $this->goal;
+    }
+    public function getMemory(): array
+    {
+        return $this->memory;
+    }
 
     public function think(string $input): string
     {
@@ -44,6 +56,7 @@ class Agent
         $response = $this->process($input);
         $this->memory[] = ['role' => 'assistant', 'content' => $response];
         $this->notify('thought', ['input' => $input, 'output' => $response]);
+
         return $response;
     }
 
@@ -91,6 +104,7 @@ class Agent
 
         if ($httpCode !== 200) {
             $message = $data['error']['message'] ?? "HTTP {$httpCode}";
+
             throw new \RuntimeException("OpenAI API error: {$message}");
         }
 

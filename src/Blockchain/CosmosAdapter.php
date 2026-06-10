@@ -29,6 +29,7 @@ final class CosmosAdapter implements BlockchainInterface
             throw new \RuntimeException('Insufficient ATOM balance');
         }
         $this->balance -= $amount;
+
         return 'cosmos_tx_' . bin2hex(random_bytes(16));
     }
 

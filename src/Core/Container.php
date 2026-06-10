@@ -32,10 +32,12 @@ final class Container implements ContainerInterface
 
         if (class_exists($id)) {
             $this->failedLookups[$id] = false;
+
             return $this->instances[$id] = new $id();
         }
 
         $this->failedLookups[$id] = true;
+
         throw new \Exception("Service '$id' not found");
     }
 

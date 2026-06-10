@@ -14,7 +14,7 @@ class UserController
         unset($_SESSION['user_created']);
 
         $repo = ServiceLocator::get(\App\Repositories\UserRepository::class);
-        $stmt = \Phoenix\Database\Connection::get()->prepare("SELECT * FROM users ORDER BY id DESC");
+        $stmt = \Phoenix\Database\Connection::get()->prepare('SELECT * FROM users ORDER BY id DESC');
         $stmt->execute();
         $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
@@ -54,7 +54,7 @@ class UserController
         $email = $_POST['email'] ?? '';
 
         if ($name && $email) {
-            $stmt = \Phoenix\Database\Connection::get()->prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+            $stmt = \Phoenix\Database\Connection::get()->prepare('INSERT INTO users (name, email) VALUES (?, ?)');
             $stmt->execute([$name, $email]);
             $_SESSION['user_created'] = "User \"{$name}\" created successfully.";
         }

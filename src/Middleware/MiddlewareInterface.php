@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Middleware;
 
 interface MiddlewareInterface

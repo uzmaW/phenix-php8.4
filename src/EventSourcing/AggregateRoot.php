@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\EventSourcing;
 
 abstract class AggregateRoot
@@ -30,6 +31,7 @@ abstract class AggregateRoot
     {
         $events = $this->recordedEvents;
         $this->recordedEvents = [];
+
         return $events;
     }
 

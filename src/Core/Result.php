@@ -6,7 +6,7 @@ final class Result
 {
     private function __construct(
         private readonly bool $isOk,
-        private readonly mixed $valueOrError
+        private readonly mixed $valueOrError,
     ) {}
 
     public static function ok(mixed $value): self
@@ -34,6 +34,7 @@ final class Result
         if (!$this->isOk) {
             throw new \RuntimeException('Called unwrap() on Err');
         }
+
         return $this->valueOrError;
     }
 

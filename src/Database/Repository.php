@@ -24,7 +24,7 @@ abstract class Repository
         $stmt->execute();
         $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        return array_map(fn($data) => $this->mapToEntity($data), $rows);
+        return array_map(fn ($data) => $this->mapToEntity($data), $rows);
     }
 
     public function save(object $entity): void
@@ -55,6 +55,7 @@ abstract class Repository
                 $name = $param->getName();
                 $args[] = $data[$name] ?? $param->getDefaultValue();
             }
+
             return new $entityClass(...$args);
         }
 

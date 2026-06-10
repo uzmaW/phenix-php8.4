@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Saga;
 
 final class Saga
@@ -11,6 +12,7 @@ final class Saga
     {
         $this->steps[] = ['name' => $name, 'action' => $action];
         $this->compensations[] = $compensation;
+
         return $this;
     }
 
@@ -25,6 +27,7 @@ final class Saga
                 $completedSteps++;
             }
             $this->executed = true;
+
             return $results;
         } catch (\Throwable $e) {
             for ($i = $completedSteps - 1; $i >= 0; $i--) {
@@ -34,6 +37,7 @@ final class Saga
                     error_log("Compensation failed for step {$i}: " . $compError->getMessage());
                 }
             }
+
             throw $e;
         }
     }

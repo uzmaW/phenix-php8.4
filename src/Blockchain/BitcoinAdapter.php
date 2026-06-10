@@ -29,6 +29,7 @@ final class BitcoinAdapter implements BlockchainInterface
             throw new \RuntimeException('Insufficient balance');
         }
         $this->balance -= $amount;
+
         return 'btc_tx_' . bin2hex(random_bytes(16));
     }
 

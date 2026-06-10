@@ -14,16 +14,18 @@ final class ServiceLocator
     public static function get(string $id): mixed
     {
         if (!self::$container) {
-            throw new \RuntimeException("Container not initialized");
+            throw new \RuntimeException('Container not initialized');
         }
+
         return self::$container->get($id);
     }
 
     public static function app(): Container
     {
         if (!self::$container) {
-            throw new \RuntimeException("Container not initialized");
+            throw new \RuntimeException('Container not initialized');
         }
+
         return self::$container;
     }
 }

@@ -13,7 +13,7 @@ abstract class ViewModel
         $this->$property = $value;
         $this->notify('propertyChanged', (object) [
             'property' => $property,
-            'value'    => $value,
+            'value' => $value,
         ]);
     }
 }

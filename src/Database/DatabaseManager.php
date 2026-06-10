@@ -22,6 +22,7 @@ class DatabaseManager
             $config = require base_path('config/database.php');
             self::$instance = new self($config);
         }
+
         return self::$instance;
     }
 
@@ -39,7 +40,7 @@ class DatabaseManager
             $database = $connection['database'] ?? base_path('storage/database.sqlite');
             $dir = dirname($database);
             if (!is_dir($dir)) {
-                mkdir($dir, 0755, true);
+                mkdir($dir, 0o755, true);
             }
             Connection::configure("sqlite:{$database}");
         } elseif ($connection['driver'] === 'mysql') {
@@ -59,7 +60,7 @@ class DatabaseManager
         if ($driver === 'sqlite') {
             $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
         } else {
-            $stmt = $pdo->query("SHOW TABLES");
+            $stmt = $pdo->query('SHOW TABLES');
         }
 
         return $stmt->fetchAll(\PDO::FETCH_COLUMN);
@@ -68,13 +69,14 @@ class DatabaseManager
     public function tableExists(string $table): bool
     {
         $tables = $this->getTables();
+
         return in_array($table, $tables);
     }
 
     public function runMigrations(): array
     {
         if (!is_dir($this->migrationsPath)) {
-            mkdir($this->migrationsPath, 0755, true);
+            mkdir($this->migrationsPath, 0o755, true);
         }
 
         $this->ensureMigrationsTable();
@@ -87,7 +89,9 @@ class DatabaseManager
 
         foreach ($files as $file) {
             $name = basename($file, '.php');
-            if (in_array($name, $executed)) continue;
+            if (in_array($name, $executed)) {
+                continue;
+            }
 
             $migration = require $file;
             if (is_callable($migration)) {
@@ -106,7 +110,7 @@ class DatabaseManager
         $this->ensureMigrationsTable();
 
         $stmt = Connection::get()->prepare(
-            "SELECT migration FROM " . $this->config['migrations']['table'] . " ORDER BY id DESC LIMIT ?"
+            'SELECT migration FROM ' . $this->config['migrations']['table'] . ' ORDER BY id DESC LIMIT ?',
         );
         $stmt->execute([$steps]);
         $migrations = $stmt->fetchAll(\PDO::FETCH_COLUMN);
@@ -144,11 +148,11 @@ class DatabaseManager
         $pdo = Connection::get();
         $tables = $this->getTables();
 
-        $pdo->exec("SET foreign_key_checks = 0");
+        $pdo->exec('SET foreign_key_checks = 0');
         foreach ($tables as $table) {
             $pdo->exec("DROP TABLE IF EXISTS {$table}");
         }
-        $pdo->exec("SET foreign_key_checks = 1");
+        $pdo->exec('SET foreign_key_checks = 1');
 
         $this->runMigrations();
     }
@@ -170,6 +174,7 @@ class DatabaseManager
     {
         $table = $this->config['migrations']['table'] ?? 'migrations';
         $stmt = Connection::get()->query("SELECT migration FROM {$table} ORDER BY id");
+
         return $stmt->fetchAll(\PDO::FETCH_COLUMN);
     }
 

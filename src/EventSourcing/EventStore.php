@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\EventSourcing;
 
 final class EventStore
@@ -9,14 +10,16 @@ final class EventStore
     {
         $this->storageDir = $storageDir ?? sys_get_temp_dir() . '/phoenix_events';
         if (!is_dir($this->storageDir)) {
-            mkdir($this->storageDir, 0755, true);
+            mkdir($this->storageDir, 0o755, true);
         }
     }
 
     public function save(AggregateRoot $aggregate): void
     {
         $events = $aggregate->releaseEvents();
-        if (empty($events)) return;
+        if (empty($events)) {
+            return;
+        }
 
         $path = $this->storageDir . '/' . $aggregate->getId() . '.json';
         $existing = [];
@@ -34,7 +37,10 @@ final class EventStore
     public function loadEvents(string $aggregateId): array
     {
         $path = $this->storageDir . '/' . $aggregateId . '.json';
-        if (!file_exists($path)) return [];
+        if (!file_exists($path)) {
+            return [];
+        }
+
         return json_decode(file_get_contents($path), true) ?? [];
     }
 }

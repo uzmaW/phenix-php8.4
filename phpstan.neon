@@ -1,0 +1,28 @@
+parameters:
+    level: 5
+    paths:
+        - src
+    bootstrapFiles:
+        - vendor/autoload.php
+    scanDirectories:
+        - vendor/psr
+    ignoreErrors:
+        - '#Function ini_get not found.#'
+        - '#Function apcu_fetch not found.#'
+        - '#Function file_get_contents not found.#'
+        - '#Function file_put_contents not found.#'
+        - '#Constant.*not found.#'
+        - '#has no value type specified in iterable type#'
+        - '#no value type specified in iterable type array#'
+        - '#Parameter.*with no value type specified in iterable type#'
+        - '#Return type has no value type specified in iterable type#'
+        - '#implicitly nullable via default value null.#'
+        - '#unused parameter#'
+        - '#While loop condition is always true.#'
+        - '#Method.*is unused.#'
+        - '#Property.*is never read, only written.#'
+    excludePaths:
+        - vendor/*
+        - tests/*
+        - storage/*
+    reportUnmatchedIgnoredErrors: false

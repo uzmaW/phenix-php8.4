@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\CQRS;
 
 abstract class Command

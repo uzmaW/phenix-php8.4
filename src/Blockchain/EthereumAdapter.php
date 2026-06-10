@@ -31,6 +31,7 @@ final class EthereumAdapter implements BlockchainInterface
             throw new \RuntimeException('Insufficient ETH balance');
         }
         $this->balance -= $amount;
+
         return '0x' . bin2hex(random_bytes(32));
     }
 

@@ -24,12 +24,15 @@ final class Transaction
     public static function execute(callable $callback): mixed
     {
         self::begin();
+
         try {
             $result = $callback();
             self::commit();
+
             return $result;
         } catch (\Throwable $e) {
             self::rollback();
+
             throw $e;
         }
     }

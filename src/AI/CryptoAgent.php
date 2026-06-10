@@ -11,7 +11,7 @@ class CryptoAgent extends Agent
     public function __construct(
         string $name = 'CryptoAgent',
         string $role = 'You are a crypto trading AI agent',
-        string $goal = 'Manage cryptocurrency portfolios and execute trades'
+        string $goal = 'Manage cryptocurrency portfolios and execute trades',
     ) {
         parent::__construct($name, $role, $goal);
     }
@@ -31,6 +31,7 @@ class CryptoAgent extends Agent
                 'balance' => $wallet->getBalance(),
             ];
         }
+
         return $portfolio;
     }
 
@@ -50,7 +51,7 @@ class CryptoAgent extends Agent
 
     private function handleAction(string $action, string $input): string
     {
-        return match($action) {
+        return match ($action) {
             'balance' => $this->formatPortfolio(),
             'portfolio' => $this->formatPortfolio(),
             default => "CryptoAgent: {$action} action requested - " . $this->think($input),
@@ -67,6 +68,7 @@ class CryptoAgent extends Agent
         foreach ($portfolio as $chain => $data) {
             $output .= "  {$chain}: {$data['balance']} ({$data['address']})\n";
         }
+
         return $output;
     }
 }

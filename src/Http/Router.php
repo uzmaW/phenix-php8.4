@@ -12,6 +12,7 @@ class Router
         $path = trim($path, '/');
         $this->routes['GET'][$path] = $handler;
         $this->compiledRoutes = [];
+
         return $this;
     }
 
@@ -20,6 +21,7 @@ class Router
         $path = trim($path, '/');
         $this->routes['POST'][$path] = $handler;
         $this->compiledRoutes = [];
+
         return $this;
     }
 
@@ -28,6 +30,7 @@ class Router
         $path = trim($path, '/');
         $this->routes['PUT'][$path] = $handler;
         $this->compiledRoutes = [];
+
         return $this;
     }
 
@@ -36,6 +39,7 @@ class Router
         $path = trim($path, '/');
         $this->routes['DELETE'][$path] = $handler;
         $this->compiledRoutes = [];
+
         return $this;
     }
 
@@ -51,7 +55,8 @@ class Router
 
         if (!$handler) {
             http_response_code(404);
-            return "404 Not Found";
+
+            return '404 Not Found';
         }
 
         if (is_callable($handler)) {
@@ -59,7 +64,8 @@ class Router
         }
 
         [$controller, $action] = $handler;
-        return (new $controller)->$action();
+
+        return (new $controller())->$action();
     }
 
     public function getRoutes(): array

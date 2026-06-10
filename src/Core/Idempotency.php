@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Core;
 
 final class Idempotency
@@ -9,7 +10,7 @@ final class Idempotency
     {
         $this->storageDir = $storageDir ?? sys_get_temp_dir() . '/phoenix_idempotency';
         if (!is_dir($this->storageDir)) {
-            mkdir($this->storageDir, 0755, true);
+            mkdir($this->storageDir, 0o755, true);
         }
     }
 
@@ -26,13 +27,13 @@ final class Idempotency
         }
 
         if (file_exists($lockPath)) {
-            $lockTime = (int)file_get_contents($lockPath);
+            $lockTime = (int) file_get_contents($lockPath);
             if (time() - $lockTime < 30) {
                 throw new \RuntimeException('Operation already in progress');
             }
         }
 
-        file_put_contents($lockPath, (string)time());
+        file_put_contents($lockPath, (string) time());
 
         try {
             $result = $operation();
@@ -40,6 +41,7 @@ final class Idempotency
                 'result' => $result,
                 'expires' => time() + $ttl,
             ]));
+
             return $result;
         } finally {
             @unlink($lockPath);

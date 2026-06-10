@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Console;
 
 abstract class Command

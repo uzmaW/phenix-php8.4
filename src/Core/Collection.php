@@ -30,10 +30,14 @@ final class Collection implements \IteratorAggregate, \Countable
     {
         if ($callback) {
             foreach ($this->items as $item) {
-                if ($callback($item)) return $item;
+                if ($callback($item)) {
+                    return $item;
+                }
             }
+
             return null;
         }
+
         return $this->items[0] ?? null;
     }
 
@@ -52,6 +56,7 @@ final class Collection implements \IteratorAggregate, \Countable
         foreach ($this->items as $key => $item) {
             $callback($item, $key);
         }
+
         return $this;
     }
 }

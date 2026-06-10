@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\RateLimit;
 
 final class RateLimiter
@@ -15,7 +16,7 @@ final class RateLimiter
         $this->useMemory = $useMemory && function_exists('apcu_fetch') && (bool) ini_get('apc.enabled');
 
         if (!is_dir($this->storageDir)) {
-            mkdir($this->storageDir, 0755, true);
+            mkdir($this->storageDir, 0o755, true);
         }
     }
 
@@ -32,6 +33,7 @@ final class RateLimiter
             self::$memoryCache[$key] = $data;
             $this->persistRateLimitData($key, $data);
             $this->cleanupIfNeeded();
+
             return $data['count'] <= $maxAttempts;
         }
 
@@ -54,6 +56,7 @@ final class RateLimiter
         }
 
         $this->cleanupIfNeeded();
+
         return $data['count'] <= $maxAttempts;
     }
 
@@ -63,15 +66,22 @@ final class RateLimiter
 
         if ($this->useMemory && isset(self::$memoryCache[$key])) {
             $data = self::$memoryCache[$key];
-            if (($data['reset_at'] ?? 0) < $now) return $maxAttempts;
+            if (($data['reset_at'] ?? 0) < $now) {
+                return $maxAttempts;
+            }
+
             return max(0, $maxAttempts - ($data['count'] ?? 0));
         }
 
         $path = $this->storageDir . '/' . md5($key) . '.json';
-        if (!file_exists($path)) return $maxAttempts;
+        if (!file_exists($path)) {
+            return $maxAttempts;
+        }
 
         $data = json_decode(file_get_contents($path), true);
-        if (!$data || ($data['reset_at'] ?? 0) < $now) return $maxAttempts;
+        if (!$data || ($data['reset_at'] ?? 0) < $now) {
+            return $maxAttempts;
+        }
 
         return max(0, $maxAttempts - ($data['count'] ?? 0));
     }
@@ -91,6 +101,7 @@ final class RateLimiter
     public function middleware(string $keyPrefix = 'api'): callable
     {
         $limiter = $this;
+
         return function () use ($limiter, $keyPrefix) {
             $key = $keyPrefix . ':' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
             if (!$limiter->attempt($key)) {
@@ -113,18 +124,26 @@ final class RateLimiter
         $cleanupFile = $this->storageDir . '/.last_cleanup';
         if (file_exists($cleanupFile)) {
             $lastCleanup = (int) file_get_contents($cleanupFile);
-            if (time() - $lastCleanup < self::CLEANUP_INTERVAL) return;
+            if (time() - $lastCleanup < self::CLEANUP_INTERVAL) {
+                return;
+            }
         }
         file_put_contents($cleanupFile, (string) time());
 
         $dir = opendir($this->storageDir);
-        if (!$dir) return;
+        if (!$dir) {
+            return;
+        }
 
         $now = time();
         $checked = 0;
         while (($file = readdir($dir)) !== false) {
-            if ($file === '.' || $file === '..' || $file === '.last_cleanup') continue;
-            if (pathinfo($file, PATHINFO_EXTENSION) !== 'json') continue;
+            if ($file === '.' || $file === '..' || $file === '.last_cleanup') {
+                continue;
+            }
+            if (pathinfo($file, PATHINFO_EXTENSION) !== 'json') {
+                continue;
+            }
 
             $checked++;
             $filePath = $this->storageDir . '/' . $file;

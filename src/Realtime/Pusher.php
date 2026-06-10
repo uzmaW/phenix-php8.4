@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Realtime;
 
 use Phoenix\WebSocket\PubSub;
@@ -61,7 +62,7 @@ final class Pusher
     {
         return array_filter(
             $this->events,
-            fn(array $e) => $e['channel'] === $channel
+            fn (array $e) => $e['channel'] === $channel,
         );
     }
 

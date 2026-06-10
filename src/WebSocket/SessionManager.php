@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\WebSocket;
 
 final class SessionManager
@@ -10,7 +11,7 @@ final class SessionManager
     {
         $this->sessionDir = $sessionDir ?? sys_get_temp_dir() . '/phoenix_ws_sessions';
         if (!is_dir($this->sessionDir)) {
-            mkdir($this->sessionDir, 0755, true);
+            mkdir($this->sessionDir, 0o755, true);
         }
     }
 
@@ -23,21 +24,26 @@ final class SessionManager
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
             'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
             'created' => time(),
-            'expires' => time() + self::TTL
+            'expires' => time() + self::TTL,
         ];
         file_put_contents($this->sessionDir . '/' . $token . '.json', json_encode($session));
+
         return $token;
     }
 
     public function validate(string $token): ?array
     {
         $path = $this->sessionDir . '/' . $token . '.json';
-        if (!file_exists($path)) return null;
+        if (!file_exists($path)) {
+            return null;
+        }
         $data = json_decode(file_get_contents($path), true);
         if (!$data || ($data['expires'] ?? 0) < time()) {
             @unlink($path);
+
             return null;
         }
+
         return $data;
     }
 

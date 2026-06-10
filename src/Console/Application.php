@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Console;
 
 class Application
@@ -35,6 +36,7 @@ class Application
         if (!isset($this->commands[$commandName])) {
             fwrite(STDERR, "Unknown command: $commandName\n");
             $this->showHelp();
+
             return 1;
         }
 

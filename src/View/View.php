@@ -6,7 +6,7 @@ final class View
 {
     public function __construct(
         private string $view,
-        private array $data = []
+        private array $data = [],
     ) {}
 
     public function render(): string
@@ -22,7 +22,7 @@ final class View
         if (!file_exists($cachedPath) || !empty(getenv('APP_DEBUG'))) {
             $content = $this->compile(file_get_contents($sourcePath));
             if (!is_dir(Factory::cachePath())) {
-                mkdir(Factory::cachePath(), 0755, true);
+                mkdir(Factory::cachePath(), 0o755, true);
             }
             file_put_contents($cachedPath, $content);
         }
@@ -30,6 +30,7 @@ final class View
         extract($this->data);
         ob_start();
         include $cachedPath;
+
         return ob_get_clean();
     }
 
@@ -43,16 +44,17 @@ final class View
         $content = preg_replace(
             '/\{\{\s*(.+?)\s*\}\}/',
             '<?php echo htmlspecialchars((string)($1 ?? ""), ENT_QUOTES); ?>',
-            $content
+            $content,
         );
         $content = preg_replace(
             '/@if\s*\((.+?)\)/',
             '<?php if($1): ?>',
-            $content
+            $content,
         );
         $content = str_replace('@endif', '<?php endif; ?>', $content);
         $content = str_replace('@foreach', '<?php foreach', $content);
         $content = str_replace('@endforeach', '<?php endforeach; ?>', $content);
+
         return '<?php /* Cached */ ?>' . $content;
     }
 }

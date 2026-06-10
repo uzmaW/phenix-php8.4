@@ -11,7 +11,9 @@ class RequestLifecycle
 
     public static function register(): void
     {
-        if (self::$registered) return;
+        if (self::$registered) {
+            return;
+        }
         self::$registered = true;
 
         register_shutdown_function([self::class, 'cleanup']);

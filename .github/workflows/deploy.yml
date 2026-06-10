@@ -1,0 +1,94 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy target'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v*') || github.event.inputs.environment == 'staging'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+      - name: Install production dependencies
+        run: composer install --no-dev --optimize-autoloader --no-progress
+      - name: Run tests before deploy
+        run: vendor/bin/phpunit
+      - name: Create release artifact
+        run: |
+          tar -czf phoenix-${{ github.sha }}.tar.gz \
+            --exclude='.git' \
+            --exclude='tests' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            --exclude='docs' \
+            .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-release
+          path: phoenix-${{ github.sha }}.tar.gz
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    environment: production
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+      - name: Install production dependencies
+        run: composer install --no-dev --optimize-autoloader --no-progress
+      - name: Run full test suite
+        run: vendor/bin/phpunit
+      - name: Create production artifact
+        run: |
+          tar -czf phoenix-prod-${{ github.sha }}.tar.gz \
+            --exclude='.git' \
+            --exclude='tests' \
+            --exclude='node_modules' \
+            --exclude='.github' \
+            --exclude='docs' \
+            .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: phoenix-production
+          path: phoenix-prod-${{ github.sha }}.tar.gz
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v*')
+    needs: deploy-staging
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') }}

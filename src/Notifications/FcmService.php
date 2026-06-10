@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Notifications;
 
 final class FcmService
@@ -67,6 +68,7 @@ final class FcmService
         foreach ($tokens as $token) {
             $results[] = $this->sendToToken($token, $title, $body, $data);
         }
+
         return $results;
     }
 
@@ -218,6 +220,7 @@ final class FcmService
         foreach ($data as $key => $value) {
             $sanitized[$key] = (string) $value;
         }
+
         return $sanitized;
     }
 

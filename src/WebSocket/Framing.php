@@ -1,13 +1,18 @@
 <?php
+
 namespace Phoenix\WebSocket;
 
 trait Framing
 {
     private function decode(string $data): ?string
     {
-        if (strlen($data) < 2) return null;
+        if (strlen($data) < 2) {
+            return null;
+        }
         $opcode = ord($data[0]) & 0x0F;
-        if ($opcode !== 1) return null;
+        if ($opcode !== 1) {
+            return null;
+        }
         $masked = ord($data[1]) & 0x80;
         $length = ord($data[1]) & 0x7F;
         $offset = 2;
@@ -26,12 +31,13 @@ trait Framing
                 $payload[$i] = $payload[$i] ^ $mask[$i % 4];
             }
         }
+
         return $payload;
     }
 
     private function encode(string $payload, int $opcode = 1): string
     {
-        $payload = (string)$payload;
+        $payload = (string) $payload;
         $length = strlen($payload);
         $frame = chr(0x80 | $opcode);
         if ($length <= 125) {
@@ -41,6 +47,7 @@ trait Framing
         } else {
             $frame .= chr(127) . pack('J', $length);
         }
+
         return $frame . $payload;
     }
 

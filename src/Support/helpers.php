@@ -58,7 +58,7 @@ if (!function_exists('config_path')) {
 if (!function_exists('view')) {
     function view(string $view, array $data = []): string
     {
-        return \Phoenix\View\Factory::make($view, $data)->render();
+        return Phoenix\View\Factory::make($view, $data)->render();
     }
 }
 
@@ -94,6 +94,7 @@ if (!function_exists('base58_encode')) {
                 break;
             }
         }
+
         return $encoded;
     }
 }

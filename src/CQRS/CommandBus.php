@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\CQRS;
 
 final class CommandBus
@@ -16,6 +17,7 @@ final class CommandBus
         if (!isset($this->handlers[$class])) {
             throw new \RuntimeException("No handler registered for command: $class");
         }
+
         return ($this->handlers[$class])($command);
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\CQRS;
 
 final class QueryBus
@@ -16,6 +17,7 @@ final class QueryBus
         if (!isset($this->handlers[$class])) {
             throw new \RuntimeException("No handler registered for query: $class");
         }
+
         return ($this->handlers[$class])($query);
     }
 }

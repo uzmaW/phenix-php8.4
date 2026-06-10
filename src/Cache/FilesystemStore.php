@@ -17,7 +17,7 @@ final class FilesystemStore implements CacheInterface
         $this->useMemory = $useMemory && function_exists('apcu_fetch') && (bool) ini_get('apc.enabled');
 
         if (!is_dir($this->path)) {
-            mkdir($this->path, 0755, true);
+            mkdir($this->path, 0o755, true);
         }
     }
 
@@ -48,6 +48,7 @@ final class FilesystemStore implements CacheInterface
             if ($this->useMemory) {
                 $this->negativeCache[$key] = time() + 60;
             }
+
             return $default;
         }
 
@@ -59,6 +60,7 @@ final class FilesystemStore implements CacheInterface
             if ($this->useMemory) {
                 $this->negativeCache[$key] = time() + 60;
             }
+
             return $default;
         }
 
@@ -91,6 +93,7 @@ final class FilesystemStore implements CacheInterface
         }
 
         $file = $this->file($key);
+
         return !file_exists($file) || unlink($file);
     }
 
@@ -102,15 +105,20 @@ final class FilesystemStore implements CacheInterface
         }
 
         $dir = opendir($this->path);
-        if (!$dir) return false;
+        if (!$dir) {
+            return false;
+        }
 
         while (($file = readdir($dir)) !== false) {
-            if ($file === '.' || $file === '..') continue;
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
             if (pathinfo($file, PATHINFO_EXTENSION) === 'cache') {
                 @unlink($this->path . '/' . $file);
             }
         }
         closedir($dir);
+
         return true;
     }
 
@@ -120,6 +128,7 @@ final class FilesystemStore implements CacheInterface
         foreach ($keys as $key) {
             $result[$key] = $this->get($key, $default);
         }
+
         return $result;
     }
 
@@ -128,6 +137,7 @@ final class FilesystemStore implements CacheInterface
         foreach ($values as $key => $value) {
             $this->set($key, $value, $ttl);
         }
+
         return true;
     }
 
@@ -136,6 +146,7 @@ final class FilesystemStore implements CacheInterface
         foreach ($keys as $key) {
             $this->delete($key);
         }
+
         return true;
     }
 
@@ -157,6 +168,7 @@ final class FilesystemStore implements CacheInterface
             if ($this->useMemory) {
                 $this->negativeCache[$key] = time() + 60;
             }
+
             return false;
         }
 
@@ -168,6 +180,7 @@ final class FilesystemStore implements CacheInterface
             if ($this->useMemory) {
                 $this->negativeCache[$key] = time() + 60;
             }
+
             return false;
         }
 

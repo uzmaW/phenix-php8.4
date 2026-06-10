@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\WebSocket;
 
 class Server
@@ -15,6 +16,7 @@ class Server
     private int $maxWriteBuffer;
     private int $heartbeatInterval;
     private array $lastPing = [];
+    private int $nextClientId = 0;
     private const WRITE_CHUNK_SIZE = 8192;
     private const MAX_BUFFER_SIZE = 65536;
     private const MAX_FRAME_SIZE = 1048576;
@@ -24,7 +26,7 @@ class Server
         int $readBuffer = 8192,
         int $maxConnections = 1000,
         int $maxWriteBuffer = 524288,
-        int $heartbeatInterval = 30
+        int $heartbeatInterval = 30,
     ) {
         $this->port = $port;
         $this->readBuffer = min($readBuffer, self::MAX_BUFFER_SIZE);
@@ -61,7 +63,9 @@ class Server
 
             $tvSec = 0;
             $tvUsec = 200000;
-            if (@stream_select($read, $write, $except, $tvSec, $tvUsec) === false) continue;
+            if (@stream_select($read, $write, $except, $tvSec, $tvUsec) === false) {
+                continue;
+            }
 
             $now = time();
             if ($now - $lastHeartbeat >= $this->heartbeatInterval) {
@@ -92,13 +96,16 @@ class Server
                 @fwrite($client, "HTTP/1.1 503 Service Unavailable\r\n\r\n");
                 @fclose($client);
             }
+
             return;
         }
 
         $client = @stream_socket_accept($this->server, 0);
-        if (!$client) return;
+        if (!$client) {
+            return;
+        }
         stream_set_blocking($client, false);
-        $id = spl_object_id($client);
+        $id = $this->nextClientId++;
         $this->clients[$id] = [
             'socket' => $client,
             'handshake' => false,
@@ -111,12 +118,15 @@ class Server
 
     private function handle($socket): void
     {
-        $id = spl_object_id($socket);
-        if (!isset($this->clients[$id])) return;
+        $id = $this->findClientId($socket);
+        if ($id === null || !isset($this->clients[$id])) {
+            return;
+        }
 
         $data = @fread($socket, $this->readBuffer);
         if ($data === false || $data === '') {
             $this->disconnect($socket);
+
             return;
         }
 
@@ -124,9 +134,12 @@ class Server
         $this->clients[$id]['buffer'] .= $data;
 
         if (!$this->clients[$id]['handshake']) {
-            if (strpos($this->clients[$id]['buffer'], "\r\n\r\n") === false) return;
+            if (strpos($this->clients[$id]['buffer'], "\r\n\r\n") === false) {
+                return;
+            }
             $this->handshake($socket, $this->clients[$id]['buffer']);
             $this->clients[$id]['buffer'] = '';
+
             return;
         }
 
@@ -135,6 +148,7 @@ class Server
             if (strlen($this->clients[$id]['buffer']) > self::MAX_FRAME_SIZE) {
                 $this->disconnect($socket);
             }
+
             return;
         }
         $this->clients[$id]['buffer'] = '';
@@ -144,10 +158,13 @@ class Server
         }
 
         $msg = json_decode($payload, true);
-        if (!$msg) return;
+        if (!$msg) {
+            return;
+        }
 
         if (($msg['type'] ?? '') === 'ping') {
             $this->send($socket, ['type' => 'pong', 'time' => time()]);
+
             return;
         }
 
@@ -156,13 +173,14 @@ class Server
                 $msg['data'] ?? '',
                 $msg['name'] ?? 'unknown',
                 $msg['mime'] ?? 'application/octet-stream',
-                $this->clients[$id]['user']['name'] ?? 'Anonymous'
+                $this->clients[$id]['user']['name'] ?? 'Anonymous',
             );
             if ($fileInfo) {
                 $this->pubsub->publish(array_merge(['type' => 'file'], $fileInfo));
             } else {
                 $this->send($socket, ['type' => 'error', 'message' => 'Upload failed']);
             }
+
             return;
         }
 
@@ -170,7 +188,7 @@ class Server
             'type' => 'message',
             'user' => $this->clients[$id]['user']['name'] ?? 'Anonymous',
             'message' => htmlspecialchars($msg['message'] ?? ''),
-            'time' => date('H:i')
+            'time' => date('H:i'),
         ]);
     }
 
@@ -178,12 +196,16 @@ class Server
     {
         if (!preg_match('/Sec-WebSocket-Key: (.*)\r\n/', $headers, $matches)) {
             fclose($socket);
+
             return;
         }
         $key = base64_encode(pack('H*', sha1($matches[1] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
         $response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: $key\r\n\r\n";
         @fwrite($socket, $response);
-        $id = spl_object_id($socket);
+        $id = $this->findClientId($socket);
+        if ($id === null) {
+            return;
+        }
         $this->clients[$id]['handshake'] = true;
         $this->clients[$id]['user'] = ['name' => 'Anonymous', 'id' => $id];
         $this->pubsub->publish(['type' => 'system', 'message' => 'A user joined']);
@@ -200,6 +222,7 @@ class Server
                 $currentLen = strlen($this->writeBuffer[$id] ?? '');
                 if ($currentLen + $frameLen > $this->maxWriteBuffer) {
                     $toDisconnect[] = $client['socket'];
+
                     continue;
                 }
                 $this->writeBuffer[$id] = ($this->writeBuffer[$id] ?? '') . $frame;
@@ -213,14 +236,17 @@ class Server
 
     private function flushWriteBuffer($socket): void
     {
-        $id = spl_object_id($socket);
-        if (empty($this->writeBuffer[$id])) return;
+        $id = $this->findClientId($socket);
+        if ($id === null || empty($this->writeBuffer[$id])) {
+            return;
+        }
 
         $chunk = substr($this->writeBuffer[$id], 0, self::WRITE_CHUNK_SIZE);
         $written = @fwrite($socket, $chunk);
 
         if ($written === false) {
             $this->disconnect($socket);
+
             return;
         }
 
@@ -253,6 +279,7 @@ class Server
                 if ($now - $client['connected_at'] > 30) {
                     $this->disconnect($client['socket']);
                 }
+
                 continue;
             }
 
@@ -264,13 +291,26 @@ class Server
 
     private function disconnect($socket): void
     {
-        $id = spl_object_id($socket);
-        unset(
-            $this->clients[$id],
-            $this->writeBuffer[$id],
-            $this->lastPing[$id]
-        );
+        $id = $this->findClientId($socket);
+        if ($id !== null) {
+            unset(
+                $this->clients[$id],
+                $this->writeBuffer[$id],
+                $this->lastPing[$id],
+            );
+        }
         @fclose($socket);
+    }
+
+    private function findClientId($socket): ?int
+    {
+        foreach ($this->clients as $id => $client) {
+            if ($client['socket'] === $socket) {
+                return $id;
+            }
+        }
+
+        return null;
     }
 
     public function getConnectionCount(): int

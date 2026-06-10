@@ -2,10 +2,10 @@
 
 namespace App\Auth;
 
-use Phoenix\Core\Result;
-use Phoenix\Core\Traits\Stateful;
 use App\Auth\States\UserState;
 use App\Services\AuthService;
+use Phoenix\Core\Result;
+use Phoenix\Core\Traits\Stateful;
 
 final class User
 {
@@ -14,7 +14,7 @@ final class User
     public function __construct(
         public readonly int $id,
         public string $name,
-        public string $email
+        public string $email,
     ) {
         $this->state = UserState::Guest;
     }
@@ -32,12 +32,13 @@ final class User
             UserState::Guest => Result::ok(null)
                 ->flatMap(function () use ($password) {
                     $this->transition(UserState::LoggingIn);
+
                     return AuthService::verify($this, $password);
                 })
-                ->map(fn() => $this->transition(UserState::Authenticated)),
+                ->map(fn () => $this->transition(UserState::Authenticated)),
             UserState::Authenticated => Result::ok($this),
-            UserState::Banned => Result::err("User is banned"),
-            default => Result::err("Invalid state"),
+            UserState::Banned => Result::err('User is banned'),
+            default => Result::err('Invalid state'),
         };
     }
 }

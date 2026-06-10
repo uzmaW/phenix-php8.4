@@ -1,4 +1,5 @@
 <?php
+
 namespace Phoenix\Middleware;
 
 final class MiddlewareKernel
@@ -31,9 +32,11 @@ final class MiddlewareKernel
             $middlewareClass = $all[$i];
             $pipeline = function ($request) use ($middlewareClass, $pipeline) {
                 $middleware = new $middlewareClass();
+
                 return $middleware->handle($request, $pipeline);
             };
         }
+
         return $pipeline($request);
     }
 

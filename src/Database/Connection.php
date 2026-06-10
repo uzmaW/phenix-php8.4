@@ -50,6 +50,7 @@ final class Connection
             $stmt = self::$statementCache[$cacheKey];
             if ($stmt->errorCode() === '00000') {
                 $stmt->closeCursor();
+
                 return $stmt;
             }
             unset(self::$statementCache[$cacheKey]);
@@ -69,6 +70,7 @@ final class Connection
     {
         $stmt = self::prepare($sql);
         $stmt->execute($params);
+
         return $stmt;
     }
 
@@ -93,8 +95,10 @@ final class Connection
             $entry = array_pop(self::$pool);
             if (self::isConnectionAlive($entry['connection'])) {
                 $entry['lastUsed'] = time();
+
                 return $entry['connection'];
             }
+
             try {
                 $entry['connection'] = null;
             } catch (\Throwable) {
@@ -108,6 +112,7 @@ final class Connection
     {
         if (!self::isConnectionAlive($connection)) {
             $connection = null;
+
             return;
         }
 
@@ -142,12 +147,15 @@ final class Connection
     {
         $pdo = self::get();
         $pdo->beginTransaction();
+
         try {
             $result = $callback($pdo);
             $pdo->commit();
+
             return $result;
         } catch (\Throwable $e) {
             $pdo->rollBack();
+
             throw $e;
         }
     }
@@ -173,6 +181,7 @@ final class Connection
     {
         try {
             $connection->query('SELECT 1');
+
             return true;
         } catch (\Throwable) {
             return false;

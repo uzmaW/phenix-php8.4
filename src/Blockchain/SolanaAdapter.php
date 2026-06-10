@@ -29,6 +29,7 @@ final class SolanaAdapter implements BlockchainInterface
             throw new \RuntimeException('Insufficient SOL balance');
         }
         $this->balance -= $amount;
+
         return bin2hex(random_bytes(32));
     }
 

@@ -1,12 +1,19 @@
 <?php
+
 namespace Phoenix\Console\Commands;
 
 use Phoenix\Console\Command;
 
 class CacheClearCommand extends Command
 {
-    public function getName(): string { return 'cache:clear'; }
-    public function getDescription(): string { return 'Clear all framework cache'; }
+    public function getName(): string
+    {
+        return 'cache:clear';
+    }
+    public function getDescription(): string
+    {
+        return 'Clear all framework cache';
+    }
 
     public function execute(array $args): int
     {
@@ -19,7 +26,8 @@ class CacheClearCommand extends Command
                 }
             }
         }
-        $this->info("Cache cleared successfully!");
+        $this->info('Cache cleared successfully!');
+
         return 0;
     }
 }
