@@ -30,7 +30,7 @@ class Application
     public function run(): int
     {
         global $argv;
-        $args = $argv ?? [];
+        $args = $argv ?: [];
         $commandName = $args[1] ?? 'info';
 
         if (!isset($this->commands[$commandName])) {

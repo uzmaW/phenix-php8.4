@@ -17,7 +17,7 @@ jobs:
           php-version: '8.2'
           tools: composer:v2
       - run: composer install --no-progress --prefer-dist
-      - run: find src/ -name "*.php" -exec php -l {} \; 2>&1 | grep -v "No syntax errors"
+      - run: find src/ -name "*.php" -exec php -l {} \; 2>&1 | tee lint.txt; if grep -v "No syntax errors" lint.txt | grep -q .; then echo "Syntax errors found:"; grep -v "No syntax errors" lint.txt; exit 1; fi
 
   test:
     name: PHPUnit Tests (PHP ${{ matrix.php }})
