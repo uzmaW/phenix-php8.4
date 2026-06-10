@@ -5,6 +5,12 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+            <directory>app</directory>
+        </include>
+    </source>
     <php>
         <env name="APP_ENV" value="testing"/>
     </php>
