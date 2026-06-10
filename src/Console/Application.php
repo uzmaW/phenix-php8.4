@@ -30,8 +30,7 @@ class Application
     public function run(): int
     {
         global $argv;
-        $args = $argv ?: [];
-        $commandName = $args[1] ?? 'info';
+        $commandName = $argv[1] ?? 'info';
 
         if (!isset($this->commands[$commandName])) {
             fwrite(STDERR, "Unknown command: $commandName\n");
@@ -40,7 +39,7 @@ class Application
             return 1;
         }
 
-        return $this->commands[$commandName]->execute(array_slice($args, 2));
+        return $this->commands[$commandName]->execute(array_slice($argv, 2));
     }
 
     private function showHelp(): void
