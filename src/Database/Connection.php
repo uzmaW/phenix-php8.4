@@ -9,6 +9,20 @@ final class Connection
     private static array $statementCache = [];
     private static int $maxPoolSize = 5;
     private static int $cacheSize = 128;
+    private static int $connectionTimeout = 5;
+    private static string $dsn = '';
+    private static ?string $username = null;
+    private static ?string $password = null;
+    private static array $options = [];
+
+    public static function configure(string $dsn, ?string $username = null, ?string $password = null, array $options = []): void
+    {
+        self::$dsn = $dsn;
+        self::$username = $username;
+        self::$password = $password;
+        self::$options = $options;
+        self::reset();
+    }
 
     public static function get(): \PDO
     {
@@ -23,8 +37,8 @@ final class Connection
 
     public static function reset(): void
     {
+        self::closeAll();
         self::$instance = null;
-        self::$pool = [];
         self::$statementCache = [];
     }
 
@@ -34,8 +48,11 @@ final class Connection
 
         if (isset(self::$statementCache[$cacheKey])) {
             $stmt = self::$statementCache[$cacheKey];
-            $stmt->closeCursor();
-            return $stmt;
+            if ($stmt->getColumnMeta(0) !== false || !$stmt->errorCode() || $stmt->errorCode() === '00000') {
+                $stmt->closeCursor();
+                return $stmt;
+            }
+            unset(self::$statementCache[$cacheKey]);
         }
 
         $stmt = self::get()->prepare($sql);
@@ -70,45 +87,107 @@ final class Connection
         return self::get()->rollBack();
     }
 
-    public static function pool(): ?\PDO
+    public static function acquire(): \PDO
     {
-        if (!empty(self::$pool)) {
-            return array_pop(self::$pool);
+        while (!empty(self::$pool)) {
+            $entry = array_pop(self::$pool);
+            if (self::isConnectionAlive($entry['connection'])) {
+                $entry['lastUsed'] = time();
+                return $entry['connection'];
+            }
+            try {
+                $entry['connection'] = null;
+            } catch (\Throwable) {
+            }
         }
+
         return self::createConnection();
     }
 
     public static function release(\PDO $connection): void
     {
+        if (!self::isConnectionAlive($connection)) {
+            $connection = null;
+            return;
+        }
+
         try {
             if ($connection->inTransaction()) {
                 $connection->rollBack();
             }
-            $connection->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_SILENT);
-            $connection->exec('ROLLBACK');
-            $connection->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         } catch (\Throwable) {
         }
 
+        $idleCount = 0;
+        foreach (self::$pool as $entry) {
+            if ($entry['connection'] === $connection) {
+                return;
+            }
+            if (time() - $entry['lastUsed'] > 60) {
+                $idleCount++;
+            }
+        }
+
         if (count(self::$pool) < self::$maxPoolSize) {
-            self::$pool[] = $connection;
+            self::$pool[] = [
+                'connection' => $connection,
+                'lastUsed' => time(),
+            ];
         } else {
             $connection = null;
         }
     }
 
+    public static function transaction(callable $callback): mixed
+    {
+        $pdo = self::get();
+        $pdo->beginTransaction();
+        try {
+            $result = $callback($pdo);
+            $pdo->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     private static function createConnection(): \PDO
     {
-        return new \PDO(
-            "sqlite::memory:",
-            null,
-            null,
-            [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_EMULATE_PREPARES => false,
-                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-            ]
-        );
+        $dsn = self::$dsn ?: 'sqlite::memory:';
+
+        $defaultOptions = [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_EMULATE_PREPARES => false,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            \PDO::ATTR_PERSISTENT => false,
+            \PDO::ATTR_TIMEOUT => self::$connectionTimeout,
+        ];
+
+        $options = array_merge($defaultOptions, self::$options);
+
+        return new \PDO($dsn, self::$username, self::$password, $options);
+    }
+
+    private static function isConnectionAlive(\PDO $connection): bool
+    {
+        try {
+            $connection->query('SELECT 1');
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private static function closeAll(): void
+    {
+        foreach (self::$pool as $entry) {
+            try {
+                $entry['connection'] = null;
+            } catch (\Throwable) {
+            }
+        }
+        self::$pool = [];
     }
 
     public static function setMaxPoolSize(int $size): void
@@ -119,6 +198,32 @@ final class Connection
     public static function setCacheSize(int $size): void
     {
         self::$cacheSize = $size;
+    }
+
+    public static function setConnectionTimeout(int $seconds): void
+    {
+        self::$connectionTimeout = $seconds;
+    }
+
+    public static function getPoolStats(): array
+    {
+        $idle = 0;
+        $active = 0;
+        foreach (self::$pool as $entry) {
+            if (time() - $entry['lastUsed'] > 60) {
+                $idle++;
+            } else {
+                $active++;
+            }
+        }
+
+        return [
+            'pool_size' => count(self::$pool),
+            'max_pool_size' => self::$maxPoolSize,
+            'idle' => $idle,
+            'active' => $active,
+            'statement_cache_size' => count(self::$statementCache),
+        ];
     }
 
     public static function clearStatementCache(): void

@@ -7,7 +7,7 @@ final class RateLimiter
     private bool $useMemory;
     private static array $memoryCache = [];
     private const CLEANUP_INTERVAL = 300;
-    private const CLEANUP_BATCH_SIZE = 50;
+    private const CLEANUP_BATCH_SIZE = 200;
 
     public function __construct(?string $storageDir = null, bool $useMemory = true)
     {

@@ -11,13 +11,26 @@ class Server
     private int $port;
     private int $readBuffer;
     private array $writeBuffer = [];
-    private const MAX_BUFFER_SIZE = 65536;
+    private int $maxConnections;
+    private int $maxWriteBuffer;
+    private int $heartbeatInterval;
+    private array $lastPing = [];
     private const WRITE_CHUNK_SIZE = 8192;
+    private const MAX_BUFFER_SIZE = 65536;
+    private const MAX_FRAME_SIZE = 1048576;
 
-    public function __construct(int $port = 8080, int $readBuffer = 8192)
-    {
+    public function __construct(
+        int $port = 8080,
+        int $readBuffer = 8192,
+        int $maxConnections = 1000,
+        int $maxWriteBuffer = 524288,
+        int $heartbeatInterval = 30
+    ) {
         $this->port = $port;
         $this->readBuffer = min($readBuffer, self::MAX_BUFFER_SIZE);
+        $this->maxConnections = $maxConnections;
+        $this->maxWriteBuffer = $maxWriteBuffer;
+        $this->heartbeatInterval = $heartbeatInterval;
         $this->pubsub = new PubSub();
         UploadHandler::init();
     }
@@ -32,6 +45,8 @@ class Server
         stream_set_blocking($this->server, false);
         echo "Phoenix WebSocket Server running on port {$this->port}\n";
 
+        $lastHeartbeat = time();
+
         while (true) {
             $read = [$this->server];
             $write = [];
@@ -44,7 +59,16 @@ class Server
                 }
             }
 
-            if (@stream_select($read, $write, $except, 0, 200000) === false) continue;
+            $tvSec = 0;
+            $tvUsec = 200000;
+            if (@stream_select($read, $write, $except, $tvSec, $tvUsec) === false) continue;
+
+            $now = time();
+            if ($now - $lastHeartbeat >= $this->heartbeatInterval) {
+                $this->sendHeartbeats();
+                $this->disconnectStaleClients($now);
+                $lastHeartbeat = $now;
+            }
 
             foreach ($write as $socket) {
                 $this->flushWriteBuffer($socket);
@@ -62,6 +86,15 @@ class Server
 
     private function accept(): void
     {
+        if (count($this->clients) >= $this->maxConnections) {
+            $client = @stream_socket_accept($this->server, 0);
+            if ($client) {
+                @fwrite($client, "HTTP/1.1 503 Service Unavailable\r\n\r\n");
+                @fclose($client);
+            }
+            return;
+        }
+
         $client = @stream_socket_accept($this->server, 0);
         if (!$client) return;
         stream_set_blocking($client, false);
@@ -71,13 +104,15 @@ class Server
             'handshake' => false,
             'user' => null,
             'buffer' => '',
+            'connected_at' => time(),
+            'last_activity' => time(),
         ];
     }
 
     private function handle($socket): void
     {
         $id = spl_object_id($socket);
-        $client = &$this->clients[$id];
+        if (!isset($this->clients[$id])) return;
 
         $data = @fread($socket, $this->readBuffer);
         if ($data === false || $data === '') {
@@ -85,28 +120,43 @@ class Server
             return;
         }
 
-        $client['buffer'] .= $data;
+        $this->clients[$id]['last_activity'] = time();
+        $this->clients[$id]['buffer'] .= $data;
 
-        if (!$client['handshake']) {
-            if (strpos($client['buffer'], "\r\n\r\n") === false) return;
-            $this->handshake($socket, $client['buffer']);
-            $client['buffer'] = '';
+        if (!$this->clients[$id]['handshake']) {
+            if (strpos($this->clients[$id]['buffer'], "\r\n\r\n") === false) return;
+            $this->handshake($socket, $this->clients[$id]['buffer']);
+            $this->clients[$id]['buffer'] = '';
             return;
         }
 
-        $payload = $this->decode($client['buffer']);
-        if ($payload === null) return;
-        $client['buffer'] = '';
+        $payload = $this->decode($this->clients[$id]['buffer']);
+        if ($payload === null) {
+            if (strlen($this->clients[$id]['buffer']) > self::MAX_FRAME_SIZE) {
+                $this->disconnect($socket);
+            }
+            return;
+        }
+        $this->clients[$id]['buffer'] = '';
+
+        if ($payload === 'pong') {
+            return;
+        }
 
         $msg = json_decode($payload, true);
         if (!$msg) return;
+
+        if (($msg['type'] ?? '') === 'ping') {
+            $this->send($socket, ['type' => 'pong', 'time' => time()]);
+            return;
+        }
 
         if (($msg['type'] ?? '') === 'file_upload') {
             $fileInfo = UploadHandler::handle(
                 $msg['data'] ?? '',
                 $msg['name'] ?? 'unknown',
                 $msg['mime'] ?? 'application/octet-stream',
-                $client['user']['name'] ?? 'Anonymous'
+                $this->clients[$id]['user']['name'] ?? 'Anonymous'
             );
             if ($fileInfo) {
                 $this->pubsub->publish(array_merge(['type' => 'file'], $fileInfo));
@@ -118,7 +168,7 @@ class Server
 
         $this->pubsub->publish([
             'type' => 'message',
-            'user' => $client['user']['name'] ?? 'Anonymous',
+            'user' => $this->clients[$id]['user']['name'] ?? 'Anonymous',
             'message' => htmlspecialchars($msg['message'] ?? ''),
             'time' => date('H:i')
         ]);
@@ -132,7 +182,7 @@ class Server
         }
         $key = base64_encode(pack('H*', sha1($matches[1] . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
         $response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: $key\r\n\r\n";
-        fwrite($socket, $response);
+        @fwrite($socket, $response);
         $id = spl_object_id($socket);
         $this->clients[$id]['handshake'] = true;
         $this->clients[$id]['user'] = ['name' => 'Anonymous', 'id' => $id];
@@ -142,8 +192,14 @@ class Server
     private function broadcastToAll(array $msg): void
     {
         $frame = $this->encode(json_encode($msg));
+        $frameLen = strlen($frame);
+
         foreach ($this->clients as $id => $client) {
             if ($client['handshake'] && $client['user']) {
+                $currentLen = strlen($this->writeBuffer[$id] ?? '');
+                if ($currentLen + $frameLen > $this->maxWriteBuffer) {
+                    $this->writeBuffer[$id] = '';
+                }
                 $this->writeBuffer[$id] = ($this->writeBuffer[$id] ?? '') . $frame;
             }
         }
@@ -173,10 +229,46 @@ class Server
         }
     }
 
+    private function sendHeartbeats(): void
+    {
+        $ping = $this->encode(json_encode(['type' => 'ping', 'time' => time()]));
+        foreach ($this->clients as $id => $client) {
+            if ($client['handshake']) {
+                @fwrite($client['socket'], $ping);
+                $this->lastPing[$id] = time();
+            }
+        }
+    }
+
+    private function disconnectStaleClients(int $now): void
+    {
+        foreach ($this->clients as $id => $client) {
+            if (!$client['handshake']) {
+                if ($now - $client['connected_at'] > 30) {
+                    $this->disconnect($client['socket']);
+                }
+                continue;
+            }
+
+            if ($now - $client['last_activity'] > $this->heartbeatInterval * 3) {
+                $this->disconnect($client['socket']);
+            }
+        }
+    }
+
     private function disconnect($socket): void
     {
         $id = spl_object_id($socket);
-        unset($this->clients[$id], $this->writeBuffer[$id]);
+        unset(
+            $this->clients[$id],
+            $this->writeBuffer[$id],
+            $this->lastPing[$id]
+        );
         @fclose($socket);
+    }
+
+    public function getConnectionCount(): int
+    {
+        return count($this->clients);
     }
 }
