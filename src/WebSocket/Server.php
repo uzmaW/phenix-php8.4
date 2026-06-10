@@ -9,10 +9,15 @@ class Server
     private array $clients = [];
     private PubSub $pubsub;
     private int $port;
+    private int $readBuffer;
+    private array $writeBuffer = [];
+    private const MAX_BUFFER_SIZE = 65536;
+    private const WRITE_CHUNK_SIZE = 8192;
 
-    public function __construct(int $port = 8080)
+    public function __construct(int $port = 8080, int $readBuffer = 8192)
     {
         $this->port = $port;
+        $this->readBuffer = min($readBuffer, self::MAX_BUFFER_SIZE);
         $this->pubsub = new PubSub();
         UploadHandler::init();
     }
@@ -29,11 +34,22 @@ class Server
 
         while (true) {
             $read = [$this->server];
-            foreach ($this->clients as $client) {
+            $write = [];
+            $except = null;
+
+            foreach ($this->clients as $id => $client) {
                 $read[] = $client['socket'];
+                if (!empty($this->writeBuffer[$id])) {
+                    $write[] = $client['socket'];
+                }
             }
-            $write = $except = null;
+
             if (@stream_select($read, $write, $except, 0, 200000) === false) continue;
+
+            foreach ($write as $socket) {
+                $this->flushWriteBuffer($socket);
+            }
+
             foreach ($read as $socket) {
                 if ($socket === $this->server) {
                     $this->accept();
@@ -41,7 +57,6 @@ class Server
                     $this->handle($socket);
                 }
             }
-            usleep(10000);
         }
     }
 
@@ -55,24 +70,34 @@ class Server
             'socket' => $client,
             'handshake' => false,
             'user' => null,
+            'buffer' => '',
         ];
     }
 
     private function handle($socket): void
     {
-        $data = @fread($socket, 8192);
+        $id = spl_object_id($socket);
+        $client = &$this->clients[$id];
+
+        $data = @fread($socket, $this->readBuffer);
         if ($data === false || $data === '') {
             $this->disconnect($socket);
             return;
         }
-        $id = spl_object_id($socket);
-        $client = &$this->clients[$id];
+
+        $client['buffer'] .= $data;
+
         if (!$client['handshake']) {
-            $this->handshake($socket, $data);
+            if (strpos($client['buffer'], "\r\n\r\n") === false) return;
+            $this->handshake($socket, $client['buffer']);
+            $client['buffer'] = '';
             return;
         }
-        $payload = $this->decode($data);
+
+        $payload = $this->decode($client['buffer']);
         if ($payload === null) return;
+        $client['buffer'] = '';
+
         $msg = json_decode($payload, true);
         if (!$msg) return;
 
@@ -117,17 +142,41 @@ class Server
     private function broadcastToAll(array $msg): void
     {
         $frame = $this->encode(json_encode($msg));
-        foreach ($this->clients as $client) {
+        foreach ($this->clients as $id => $client) {
             if ($client['handshake'] && $client['user']) {
-                @fwrite($client['socket'], $frame);
+                $this->writeBuffer[$id] = ($this->writeBuffer[$id] ?? '') . $frame;
             }
+        }
+    }
+
+    private function flushWriteBuffer($socket): void
+    {
+        $id = spl_object_id($socket);
+        if (empty($this->writeBuffer[$id])) return;
+
+        $chunk = substr($this->writeBuffer[$id], 0, self::WRITE_CHUNK_SIZE);
+        $written = @fwrite($socket, $chunk);
+
+        if ($written === false) {
+            $this->disconnect($socket);
+            return;
+        }
+
+        if ($written === 0) {
+            return;
+        }
+
+        if ($written < strlen($chunk)) {
+            $this->writeBuffer[$id] = substr($this->writeBuffer[$id], $written);
+        } else {
+            unset($this->writeBuffer[$id]);
         }
     }
 
     private function disconnect($socket): void
     {
         $id = spl_object_id($socket);
-        unset($this->clients[$id]);
+        unset($this->clients[$id], $this->writeBuffer[$id]);
         @fclose($socket);
     }
 }

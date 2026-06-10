@@ -5,40 +5,54 @@ namespace Phoenix\Http;
 class Router
 {
     private array $routes = [];
+    private array $compiledRoutes = [];
     private static array $allRoutes = [];
 
     public function get(string $path, callable|array $handler): self
     {
-        $this->routes['GET'][trim($path, '/')] = $handler;
-        self::$allRoutes['GET'][trim($path, '/')] = $handler;
+        $path = trim($path, '/');
+        $this->routes['GET'][$path] = $handler;
+        self::$allRoutes['GET'][$path] = $handler;
+        $this->compiledRoutes = [];
         return $this;
     }
 
     public function post(string $path, callable|array $handler): self
     {
-        $this->routes['POST'][trim($path, '/')] = $handler;
-        self::$allRoutes['POST'][trim($path, '/')] = $handler;
+        $path = trim($path, '/');
+        $this->routes['POST'][$path] = $handler;
+        self::$allRoutes['POST'][$path] = $handler;
+        $this->compiledRoutes = [];
         return $this;
     }
 
     public function put(string $path, callable|array $handler): self
     {
-        $this->routes['PUT'][trim($path, '/')] = $handler;
-        self::$allRoutes['PUT'][trim($path, '/')] = $handler;
+        $path = trim($path, '/');
+        $this->routes['PUT'][$path] = $handler;
+        self::$allRoutes['PUT'][$path] = $handler;
+        $this->compiledRoutes = [];
         return $this;
     }
 
     public function delete(string $path, callable|array $handler): self
     {
-        $this->routes['DELETE'][trim($path, '/')] = $handler;
-        self::$allRoutes['DELETE'][trim($path, '/')] = $handler;
+        $path = trim($path, '/');
+        $this->routes['DELETE'][$path] = $handler;
+        self::$allRoutes['DELETE'][$path] = $handler;
+        $this->compiledRoutes = [];
         return $this;
     }
 
     public function dispatch(string $uri, string $method): mixed
     {
         $uri = trim(parse_url($uri, PHP_URL_PATH), '/');
-        $handler = $this->routes[$method][$uri] ?? null;
+
+        if (empty($this->compiledRoutes)) {
+            $this->compiledRoutes = $this->routes;
+        }
+
+        $handler = $this->compiledRoutes[$method][$uri] ?? null;
 
         if (!$handler) {
             http_response_code(404);
@@ -66,6 +80,7 @@ class Router
     public function clearRoutes(): void
     {
         $this->routes = [];
+        $this->compiledRoutes = [];
         self::$allRoutes = [];
     }
 }
