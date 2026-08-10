@@ -9,6 +9,11 @@ class AuthController
 {
     public function loginForm(): string
     {
+        if (!empty($_SESSION['admin_logged_in'])) {
+            header('Location: /admin');
+            exit;
+        }
+
         $error = $_SESSION['login_error'] ?? null;
         unset($_SESSION['login_error']);
 
@@ -50,6 +55,11 @@ class AuthController
 
     public function registerForm(): string
     {
+        if (!empty($_SESSION['admin_logged_in'])) {
+            header('Location: /admin');
+            exit;
+        }
+
         $error = $_SESSION['register_error'] ?? null;
         unset($_SESSION['register_error']);
 

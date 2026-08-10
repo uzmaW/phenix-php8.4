@@ -54,6 +54,22 @@ class Router
         $handler = $this->compiledRoutes[$method][$uri] ?? null;
 
         if (!$handler) {
+            foreach ($this->compiledRoutes[$method] ?? [] as $route => $routeHandler) {
+                $pattern = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $route);
+                $pattern = '#^' . $pattern . '$#';
+                if (preg_match($pattern, $uri, $matches)) {
+                    $handler = $routeHandler;
+                    foreach ($matches as $key => $value) {
+                        if (is_string($key)) {
+                            $_GET[$key] = $value;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (!$handler) {
             http_response_code(404);
 
             return '404 Not Found';

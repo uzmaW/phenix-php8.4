@@ -15,5 +15,7 @@
 </form>
 
 <p style="text-align:center; margin-top:1rem; font-size:0.9rem;">
+    @if(!$_SESSION['admin_logged_in'] ?? true)
     Don't have an account? <a href="/admin/register" style="color:#ff6b35;">Register</a>
+    @endif
 </p>

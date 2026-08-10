@@ -35,6 +35,7 @@ $router->get('/admin/logout', [App\Controllers\Admin\AuthController::class, 'log
 $router->get('/admin', [App\Controllers\Admin\DashboardController::class, 'index']);
 $router->get('/admin/dashboard', [App\Controllers\Admin\DashboardController::class, 'index']);
 $router->get('/admin/users', [App\Controllers\Admin\UserController::class, 'index']);
+$router->get('/admin/users/{id}', [App\Controllers\Admin\UserController::class, 'show']);
 $router->post('/admin/users', [App\Controllers\Admin\UserController::class, 'create']);
 $router->post('/admin/users/update', [App\Controllers\Admin\UserController::class, 'update']);
 $router->post('/admin/users/delete', [App\Controllers\Admin\UserController::class, 'delete']);

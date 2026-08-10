@@ -31,7 +31,7 @@
                 <td>{{ $user['email'] }}</td>
                 <td class="text-sm text-muted">{{ $user['created_at'] ?? 'N/A' }}</td>
                 <td style="text-align: right;">
-                    <button onclick="openEditModal({{ $user['id'] }}, '{{ $user['name'] }}', '{{ $user['email'] }}')" class="btn btn-ghost btn-sm">Edit</button>
+                    <a href="/admin/users/{{ $user['id'] }}" class="btn btn-ghost btn-sm">View</a>
                     <form method="POST" action="/admin/users/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this user?')">
                         <input type="hidden" name="id" value="{{ $user['id'] }}">
                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -65,6 +65,10 @@
                     <label>Email</label>
                     <input type="email" name="email" required placeholder="user@example.com">
                 </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required minlength="6" placeholder="Min 6 characters">
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" onclick="document.getElementById('createModal').style.display='none'" class="btn btn-ghost">Cancel</button>
@@ -73,38 +77,3 @@
         </form>
     </div>
 </div>
-
-<div id="editModal" class="modal-overlay">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Edit User</h3>
-            <button class="modal-close" onclick="document.getElementById('editModal').style.display='none'">&times;</button>
-        </div>
-        <form method="POST" action="/admin/users/update">
-            <div class="modal-body">
-                <input type="hidden" name="id" id="editUserId">
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" name="name" id="editUserName" required>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" id="editUserEmail" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="btn btn-ghost">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-function openEditModal(id, name, email) {
-    document.getElementById('editUserId').value = id;
-    document.getElementById('editUserName').value = name;
-    document.getElementById('editUserEmail').value = email;
-    document.getElementById('editModal').style.display = 'flex';
-}
-</script>
