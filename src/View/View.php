@@ -46,15 +46,45 @@ final class View
             '<?php echo htmlspecialchars((string)($1 ?? ""), ENT_QUOTES); ?>',
             $content,
         );
-        $content = preg_replace(
-            '/@if\s*\((.+?)\)/',
-            '<?php if($1): ?>',
-            $content,
-        );
+        $content = $this->compileIfDirectives($content);
         $content = str_replace('@endif', '<?php endif; ?>', $content);
+        $content = str_replace('@else', '<?php else: ?>', $content);
         $content = str_replace('@foreach', '<?php foreach', $content);
         $content = str_replace('@endforeach', '<?php endforeach; ?>', $content);
 
         return '<?php /* Cached */ ?>' . $content;
+    }
+
+    private function compileIfDirectives(string $content): string
+    {
+        $result = '';
+        $i = 0;
+        $len = strlen($content);
+
+        while ($i < $len) {
+            if (preg_match('/@if\s*\(/', $content, $matches, PREG_OFFSET_MATCH, $i)) {
+                $matchStart = $matches[0][1];
+                $result .= substr($content, $i, $matchStart - $i);
+                $parenStart = $matchStart + strlen($matches[0][0]) - 1;
+                $depth = 1;
+                $j = $parenStart + 1;
+                while ($j < $len && $depth > 0) {
+                    if ($content[$j] === '(') {
+                        $depth++;
+                    } elseif ($content[$j] === ')') {
+                        $depth--;
+                    }
+                    $j++;
+                }
+                $condition = substr($content, $parenStart + 1, $j - $parenStart - 2);
+                $result .= '<?php if(' . $condition . '): ?>';
+                $i = $j;
+            } else {
+                $result .= substr($content, $i);
+                break;
+            }
+        }
+
+        return $result;
     }
 }
