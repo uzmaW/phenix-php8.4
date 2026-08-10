@@ -38,6 +38,33 @@
     <div style="flex: 1;">
         <div class="card">
             <div class="card-header">
+                <h2>Avatar</h2>
+            </div>
+            <div style="text-align: center;">
+                @if($user['avatar'] ?? false)
+                    <img src="/storage/uploads/avatars/{{ $user['avatar'] }}" alt="{{ $user['name'] }}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #eee; margin-bottom: 1rem;">
+                    <form method="POST" action="/admin/users/avatar/delete" onsubmit="return confirm('Remove avatar?')">
+                        <input type="hidden" name="id" value="{{ $user['id'] }}">
+                        <button type="submit" class="btn btn-danger btn-sm" style="width: 100%;">Remove Avatar</button>
+                    </form>
+                @else
+                    <div style="width: 120px; height: 120px; border-radius: 50%; background: #ff6b35; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 700; margin: 0 auto 1rem;">
+                        {{ strtoupper(substr($user['name'], 0, 1)) }}
+                    </div>
+                    <form method="POST" action="/admin/users/avatar" enctype="multipart/form-data">
+                        <input type="hidden" name="id" value="{{ $user['id'] }}">
+                        <div class="form-group" style="text-align: left;">
+                            <label>Choose Image</label>
+                            <input type="file" name="avatar" accept="image/*" required style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 6px;">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">Upload Avatar</button>
+                    </form>
+                @endif
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
                 <h2>Actions</h2>
             </div>
             <div style="display: flex; flex-direction: column; gap: 0.5rem;">

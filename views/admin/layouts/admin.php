@@ -133,7 +133,11 @@
             <h1>{{ $title ?? 'Dashboard' }}</h1>
             <div class="topbar-user">
                 <span>{{ $_SESSION['admin_user'] ?? 'Admin' }}</span>
-                <div class="topbar-avatar">A</div>
+                @if($_SESSION['admin_avatar'] ?? false)
+                    <img src="/storage/uploads/avatars/{{ $_SESSION['admin_avatar'] }}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                @else
+                    <div class="topbar-avatar">A</div>
+                @endif
             </div>
         </header>
         <div class="content">

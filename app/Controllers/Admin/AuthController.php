@@ -44,6 +44,7 @@ class AuthController
             $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_user_id'] = $user['id'];
             $_SESSION['admin_user'] = $user['name'];
+            $_SESSION['admin_avatar'] = $user['avatar'] ?? null;
             header('Location: /admin');
             exit;
         }

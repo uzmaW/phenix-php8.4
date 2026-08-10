@@ -38,4 +38,6 @@ $router->get('/admin/users', [App\Controllers\Admin\UserController::class, 'inde
 $router->get('/admin/users/{id}', [App\Controllers\Admin\UserController::class, 'show']);
 $router->post('/admin/users', [App\Controllers\Admin\UserController::class, 'create']);
 $router->post('/admin/users/update', [App\Controllers\Admin\UserController::class, 'update']);
+$router->post('/admin/users/avatar', [App\Controllers\Admin\UserController::class, 'uploadAvatar']);
+$router->post('/admin/users/avatar/delete', [App\Controllers\Admin\UserController::class, 'deleteAvatar']);
 $router->post('/admin/users/delete', [App\Controllers\Admin\UserController::class, 'delete']);

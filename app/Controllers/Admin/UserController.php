@@ -7,6 +7,8 @@ use Phoenix\View\Factory;
 
 class UserController
 {
+    private string $uploadPath = 'storage/uploads/avatars';
+
     public function index(): string
     {
         $success = $_SESSION['admin_success'] ?? null;
@@ -116,7 +118,103 @@ class UserController
         }
 
         $_SESSION['admin_success'] = "User updated successfully.";
-        header('Location: /admin/users?id=' . $id);
+        header('Location: /admin/users/' . $id);
+        exit;
+    }
+
+    public function uploadAvatar(): string
+    {
+        $id = $_POST['id'] ?? 0;
+
+        if (!$id || empty($_FILES['avatar']['tmp_name'])) {
+            $_SESSION['admin_error'] = 'No file uploaded.';
+            header('Location: /admin/users/' . $id);
+            exit;
+        }
+
+        $file = $_FILES['avatar'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        if (!in_array($file['type'], $allowedTypes)) {
+            $_SESSION['admin_error'] = 'Only JPG, PNG, GIF, and WebP images are allowed.';
+            header('Location: /admin/users/' . $id);
+            exit;
+        }
+
+        if ($file['size'] > $maxSize) {
+            $_SESSION['admin_error'] = 'Image must be less than 5MB.';
+            header('Location: /admin/users/' . $id);
+            exit;
+        }
+
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'user_' . $id . '_' . time() . '.' . strtolower($ext);
+        $uploadDir = dirname(__DIR__, 2) . '/' . $this->uploadPath;
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0o755, true);
+        }
+
+        $destination = $uploadDir . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            $_SESSION['admin_error'] = 'Failed to upload file.';
+            header('Location: /admin/users/' . $id);
+            exit;
+        }
+
+        // Delete old avatar
+        $stmt = Connection::get()->prepare('SELECT avatar FROM users WHERE id = ?');
+        $stmt->execute([$id]);
+        $oldAvatar = $stmt->fetchColumn();
+        if ($oldAvatar) {
+            $oldPath = dirname(__DIR__, 2) . '/' . $this->uploadPath . '/' . $oldAvatar;
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
+        }
+
+        $stmt = Connection::get()->prepare('UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+        $stmt->execute([$filename, $id]);
+
+        // Update session if uploading own avatar
+        if (isset($_SESSION['admin_user_id']) && $_SESSION['admin_user_id'] == $id) {
+            $_SESSION['admin_avatar'] = $filename;
+        }
+
+        $_SESSION['admin_success'] = 'Avatar uploaded successfully.';
+        header('Location: /admin/users/' . $id);
+        exit;
+    }
+
+    public function deleteAvatar(): string
+    {
+        $id = $_POST['id'] ?? 0;
+
+        if ($id) {
+            $stmt = Connection::get()->prepare('SELECT avatar FROM users WHERE id = ?');
+            $stmt->execute([$id]);
+            $avatar = $stmt->fetchColumn();
+
+            if ($avatar) {
+                $path = dirname(__DIR__, 2) . '/' . $this->uploadPath . '/' . $avatar;
+                if (file_exists($path)) {
+                    unlink($path);
+                }
+
+                $stmt = Connection::get()->prepare('UPDATE users SET avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+                $stmt->execute([$id]);
+
+                if (isset($_SESSION['admin_user_id']) && $_SESSION['admin_user_id'] == $id) {
+                    $_SESSION['admin_avatar'] = null;
+                }
+
+                $_SESSION['admin_success'] = 'Avatar removed.';
+            }
+        }
+
+        header('Location: /admin/users/' . $id);
         exit;
     }
 
@@ -125,6 +223,17 @@ class UserController
         $id = $_POST['id'] ?? 0;
 
         if ($id) {
+            // Delete avatar file
+            $stmt = Connection::get()->prepare('SELECT avatar FROM users WHERE id = ?');
+            $stmt->execute([$id]);
+            $avatar = $stmt->fetchColumn();
+            if ($avatar) {
+                $path = dirname(__DIR__, 2) . '/' . $this->uploadPath . '/' . $avatar;
+                if (file_exists($path)) {
+                    unlink($path);
+                }
+            }
+
             $stmt = Connection::get()->prepare('DELETE FROM users WHERE id = ?');
             $stmt->execute([$id]);
             $_SESSION['admin_success'] = "User deleted successfully.";
@@ -132,5 +241,13 @@ class UserController
 
         header('Location: /admin/users');
         exit;
+    }
+
+    public function getAvatarPath(?string $avatar): string
+    {
+        if ($avatar) {
+            return '/' . $this->uploadPath . '/' . $avatar;
+        }
+        return '';
     }
 }
