@@ -3,12 +3,23 @@
 namespace Phoenix\Database;
 
 use Phoenix\Core\Application;
+use Phoenix\Database\Drivers\DriverInterface;
+use Phoenix\Database\Drivers\SqliteDriver;
+use Phoenix\Database\Drivers\MysqlDriver;
+use Phoenix\Database\Drivers\PgsqlDriver;
 
 class DatabaseManager
 {
     private static ?self $instance = null;
     private array $config;
     private string $migrationsPath;
+    private ?DriverInterface $driver = null;
+
+    private const DRIVERS = [
+        'sqlite' => SqliteDriver::class,
+        'mysql' => MysqlDriver::class,
+        'pgsql' => PgsqlDriver::class,
+    ];
 
     public function __construct(array $config)
     {
@@ -31,46 +42,41 @@ class DatabaseManager
         self::$instance = null;
     }
 
+    public function getDriver(): DriverInterface
+    {
+        if ($this->driver === null) {
+            $default = $this->config['default'] ?? 'sqlite';
+            $driverClass = self::DRIVERS[$default] ?? SqliteDriver::class;
+            $this->driver = new $driverClass();
+        }
+
+        return $this->driver;
+    }
+
     public function configureConnection(): void
     {
         $default = $this->config['default'] ?? 'sqlite';
         $connection = $this->config['connections'][$default] ?? [];
+        $driver = $this->getDriver();
+        $dsn = $driver->getDsn($connection);
 
-        if ($connection['driver'] === 'sqlite') {
-            $database = $connection['database'] ?? base_path('storage/database.sqlite');
-            $dir = dirname($database);
-            if (!is_dir($dir)) {
-                mkdir($dir, 0o755, true);
-            }
-            Connection::configure("sqlite:{$database}");
-        } elseif ($connection['driver'] === 'mysql') {
-            $dsn = "mysql:host={$connection['host']};port={$connection['port']};dbname={$connection['database']};charset={$connection['charset']}";
-            Connection::configure($dsn, $connection['username'], $connection['password']);
-        } elseif ($connection['driver'] === 'pgsql') {
-            $dsn = "pgsql:host={$connection['host']};port={$connection['port']};dbname={$connection['database']}";
-            Connection::configure($dsn, $connection['username'], $connection['password']);
-        }
+        $username = $connection['username'] ?? null;
+        $password = $connection['password'] ?? null;
+
+        Connection::configure($dsn, $username, $password);
     }
 
     public function getTables(): array
     {
-        $pdo = Connection::get();
-        $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-
-        if ($driver === 'sqlite') {
-            $stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
-        } else {
-            $stmt = $pdo->query('SHOW TABLES');
-        }
+        $driver = $this->getDriver();
+        $stmt = Connection::get()->query($driver->getTablesSql());
 
         return $stmt->fetchAll(\PDO::FETCH_COLUMN);
     }
 
     public function tableExists(string $table): bool
     {
-        $tables = $this->getTables();
-
-        return in_array($table, $tables);
+        return in_array($table, $this->getTables());
     }
 
     public function runMigrations(): array
@@ -109,8 +115,9 @@ class DatabaseManager
     {
         $this->ensureMigrationsTable();
 
+        $table = $this->config['migrations']['table'] ?? 'migrations';
         $stmt = Connection::get()->prepare(
-            'SELECT migration FROM ' . $this->config['migrations']['table'] . ' ORDER BY id DESC LIMIT ?',
+            "SELECT migration FROM {$table} ORDER BY id DESC LIMIT ?"
         );
         $stmt->execute([$steps]);
         $migrations = $stmt->fetchAll(\PDO::FETCH_COLUMN);
@@ -133,26 +140,14 @@ class DatabaseManager
         return $rolledBack;
     }
 
-    public function seed(string $seeder): void
-    {
-        if (class_exists($seeder)) {
-            $instance = new $seeder();
-            if (method_exists($instance, 'run')) {
-                $instance->run();
-            }
-        }
-    }
-
     public function fresh(): void
     {
         $pdo = Connection::get();
         $tables = $this->getTables();
 
-        $pdo->exec('SET foreign_key_checks = 0');
         foreach ($tables as $table) {
-            $pdo->exec("DROP TABLE IF EXISTS {$table}");
+            $pdo->exec("DROP TABLE IF EXISTS {$table} CASCADE");
         }
-        $pdo->exec('SET foreign_key_checks = 1');
 
         $this->runMigrations();
     }
@@ -160,14 +155,8 @@ class DatabaseManager
     private function ensureMigrationsTable(): void
     {
         $table = $this->config['migrations']['table'] ?? 'migrations';
-        $pdo = Connection::get();
-        $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-
-        if ($driver === 'sqlite') {
-            $pdo->exec("CREATE TABLE IF NOT EXISTS {$table} (id INTEGER PRIMARY KEY AUTOINCREMENT, migration TEXT NOT NULL, executed_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
-        } else {
-            $pdo->exec("CREATE TABLE IF NOT EXISTS {$table} (id INT AUTO_INCREMENT PRIMARY KEY, migration VARCHAR(255) NOT NULL, executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
-        }
+        $driver = $this->getDriver();
+        Connection::get()->exec($driver->createMigrationsTableSql($table));
     }
 
     private function getExecutedMigrations(): array
@@ -188,7 +177,7 @@ class DatabaseManager
     private function removeMigration(string $name): void
     {
         $table = $this->config['migrations']['table'] ?? 'migrations';
-        $stmt = Connection::get()->prepare("DELETE FROM {$table} WHERE migration = ? LIMIT 1");
+        $stmt = Connection::get()->prepare("DELETE FROM {$table} WHERE migration = ?");
         $stmt->execute([$name]);
     }
 }
