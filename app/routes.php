@@ -27,6 +27,8 @@ $router->post('/users', [App\Controllers\UserController::class, 'create']);
 // Admin auth routes (public)
 $router->get('/admin/login', [App\Controllers\Admin\AuthController::class, 'loginForm']);
 $router->post('/admin/login', [App\Controllers\Admin\AuthController::class, 'login']);
+$router->get('/admin/register', [App\Controllers\Admin\AuthController::class, 'registerForm']);
+$router->post('/admin/register', [App\Controllers\Admin\AuthController::class, 'register']);
 $router->get('/admin/logout', [App\Controllers\Admin\AuthController::class, 'logout']);
 
 // Admin routes (protected)

@@ -63,8 +63,9 @@ $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Admin auth middleware
-$isAdminRoute = str_starts_with($uri, '/admin') && !str_starts_with($uri, '/admin/login');
-if ($isAdminRoute && empty($_SESSION['admin_logged_in'])) {
+$isAdminRoute = str_starts_with($uri, '/admin');
+$isPublicAuthRoute = str_starts_with($uri, '/admin/login') || str_starts_with($uri, '/admin/register') || str_starts_with($uri, '/admin/logout');
+if ($isAdminRoute && !$isPublicAuthRoute && empty($_SESSION['admin_logged_in'])) {
     header('Location: /admin/login');
     exit;
 }

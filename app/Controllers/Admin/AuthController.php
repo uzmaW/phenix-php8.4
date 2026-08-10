@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Admin;
 
+use Phoenix\Database\Connection;
 use Phoenix\View\Factory;
 
 class AuthController
@@ -21,17 +22,83 @@ class AuthController
 
     public function login(): string
     {
-        $username = $_POST['username'] ?? '';
+        $email = $_POST['email'] ?? '';
         $password = $_POST['password'] ?? '';
 
-        if ($username === 'admin' && $password === 'password') {
+        if (!$email || !$password) {
+            $_SESSION['login_error'] = 'Email and password are required.';
+            header('Location: /admin/login');
+            exit;
+        }
+
+        $stmt = Connection::get()->prepare('SELECT id, name, email, password FROM users WHERE email = ?');
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($user && password_verify($password, $user['password'])) {
             $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_user'] = $username;
+            $_SESSION['admin_user_id'] = $user['id'];
+            $_SESSION['admin_user'] = $user['name'];
             header('Location: /admin');
             exit;
         }
 
-        $_SESSION['login_error'] = 'Invalid credentials. Try admin / password.';
+        $_SESSION['login_error'] = 'Invalid email or password.';
+        header('Location: /admin/login');
+        exit;
+    }
+
+    public function registerForm(): string
+    {
+        $error = $_SESSION['register_error'] ?? null;
+        unset($_SESSION['register_error']);
+
+        return Factory::make('admin/layouts/auth', [
+            'title' => 'Register',
+            'content' => Factory::make('admin/auth/register', [
+                'error' => $error,
+            ])->render(),
+        ])->render();
+    }
+
+    public function register(): string
+    {
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirm = $_POST['password_confirmation'] ?? '';
+
+        if (!$name || !$email || !$password) {
+            $_SESSION['register_error'] = 'All fields are required.';
+            header('Location: /admin/register');
+            exit;
+        }
+
+        if ($password !== $confirm) {
+            $_SESSION['register_error'] = 'Passwords do not match.';
+            header('Location: /admin/register');
+            exit;
+        }
+
+        if (strlen($password) < 6) {
+            $_SESSION['register_error'] = 'Password must be at least 6 characters.';
+            header('Location: /admin/register');
+            exit;
+        }
+
+        $stmt = Connection::get()->prepare('SELECT id FROM users WHERE email = ?');
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $_SESSION['register_error'] = 'Email already registered.';
+            header('Location: /admin/register');
+            exit;
+        }
+
+        $hashed = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = Connection::get()->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+        $stmt->execute([$name, $email, $hashed]);
+
+        $_SESSION['login_error'] = 'Registration successful. Please sign in.';
         header('Location: /admin/login');
         exit;
     }

@@ -4,8 +4,8 @@
 
 <form method="POST" action="/admin/login">
     <div class="form-group">
-        <label>Username</label>
-        <input type="text" name="username" required autofocus placeholder="Enter your username">
+        <label>Email</label>
+        <input type="email" name="email" required autofocus placeholder="user@example.com">
     </div>
     <div class="form-group">
         <label>Password</label>
@@ -13,3 +13,7 @@
     </div>
     <button type="submit" class="btn btn-primary">Sign In</button>
 </form>
+
+<p style="text-align:center; margin-top:1rem; font-size:0.9rem;">
+    Don't have an account? <a href="/admin/register" style="color:#ff6b35;">Register</a>
+</p>
