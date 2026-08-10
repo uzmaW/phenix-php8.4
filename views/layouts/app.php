@@ -48,7 +48,7 @@
     </header>
     <main>
         <div class="container">
-            {{ $content ?? '' }}
+            <?= $content ?? '' ?>
         </div>
     </main>
     <footer>

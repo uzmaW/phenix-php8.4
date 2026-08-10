@@ -34,7 +34,7 @@
                 <h1>Phoenix Admin</h1>
                 <p>Sign in to your dashboard</p>
             </div>
-            {{ $content ?? '' }}
+            <?= $content ?? '' ?>
             <div class="login-footer">
                 Phoenix Framework &mdash; Rust-inspired PHP
             </div>

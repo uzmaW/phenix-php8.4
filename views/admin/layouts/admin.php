@@ -133,7 +133,7 @@
             </div>
         </header>
         <div class="content">
-            {{ $content ?? '' }}
+            <?= $content ?? '' ?>
         </div>
     </div>
 </body>
