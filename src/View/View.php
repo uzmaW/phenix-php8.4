@@ -49,7 +49,7 @@ final class View
         $content = $this->compileIfDirectives($content);
         $content = str_replace('@endif', '<?php endif; ?>', $content);
         $content = str_replace('@else', '<?php else: ?>', $content);
-        $content = str_replace('@foreach', '<?php foreach', $content);
+        $content = $this->compileForeachDirectives($content);
         $content = str_replace('@endforeach', '<?php endforeach; ?>', $content);
 
         return '<?php /* Cached */ ?>' . $content;
@@ -62,27 +62,74 @@ final class View
         $len = strlen($content);
 
         while ($i < $len) {
-            if (preg_match('/@if\s*\(/', $content, $matches, PREG_OFFSET_MATCH, $i)) {
-                $matchStart = $matches[0][1];
-                $result .= substr($content, $i, $matchStart - $i);
-                $parenStart = $matchStart + strlen($matches[0][0]) - 1;
-                $depth = 1;
-                $j = $parenStart + 1;
-                while ($j < $len && $depth > 0) {
-                    if ($content[$j] === '(') {
-                        $depth++;
-                    } elseif ($content[$j] === ')') {
-                        $depth--;
-                    }
-                    $j++;
-                }
-                $condition = substr($content, $parenStart + 1, $j - $parenStart - 2);
-                $result .= '<?php if(' . $condition . '): ?>';
-                $i = $j;
-            } else {
+            $pos = strpos($content, '@if', $i);
+            if ($pos === false) {
                 $result .= substr($content, $i);
                 break;
             }
+
+            $afterIf = substr($content, $pos + 3);
+            if (!preg_match('/^\s*\(/', $afterIf)) {
+                $result .= substr($content, $i, $pos + 3 - $i);
+                $i = $pos + 3;
+                continue;
+            }
+
+            $result .= substr($content, $i, $pos - $i);
+            $parenStart = $pos + 3 + strspn($afterIf, ' ');
+            $depth = 1;
+            $j = $parenStart + 1;
+            while ($j < $len && $depth > 0) {
+                if ($content[$j] === '(') {
+                    $depth++;
+                } elseif ($content[$j] === ')') {
+                    $depth--;
+                }
+                $j++;
+            }
+            $condition = substr($content, $parenStart + 1, $j - $parenStart - 2);
+            $result .= '<?php if(' . $condition . '): ?>';
+            $i = $j;
+        }
+
+        return $result;
+    }
+
+    private function compileForeachDirectives(string $content): string
+    {
+        $result = '';
+        $i = 0;
+        $len = strlen($content);
+
+        while ($i < $len) {
+            $pos = strpos($content, '@foreach', $i);
+            if ($pos === false) {
+                $result .= substr($content, $i);
+                break;
+            }
+
+            $afterForeach = substr($content, $pos + 8);
+            if (!preg_match('/^\s*\(/', $afterForeach)) {
+                $result .= substr($content, $i, $pos + 8 - $i);
+                $i = $pos + 8;
+                continue;
+            }
+
+            $result .= substr($content, $i, $pos - $i);
+            $parenStart = $pos + 8 + strspn($afterForeach, ' ');
+            $depth = 1;
+            $j = $parenStart + 1;
+            while ($j < $len && $depth > 0) {
+                if ($content[$j] === '(') {
+                    $depth++;
+                } elseif ($content[$j] === ')') {
+                    $depth--;
+                }
+                $j++;
+            }
+            $args = substr($content, $parenStart + 1, $j - $parenStart - 2);
+            $result .= '<?php foreach(' . $args . '): ?>';
+            $i = $j;
         }
 
         return $result;
