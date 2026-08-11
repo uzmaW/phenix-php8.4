@@ -15,28 +15,6 @@ Phoenix is a modern, Rust-inspired PHP 8.2+ framework combining MVC + MVVM archi
 
 ---
 
-## Admin Dashboard
-
-### Login
-![Login](screenshots/01-login.png)
-
-### Register
-![Register](screenshots/02-register.png)
-
-### Dashboard
-![Dashboard](screenshots/03-dashboard.png)
-
-### Users Management
-![Users](screenshots/04-users.png)
-
-### Create User
-![Create User](screenshots/05-create-user-modal.png)
-
-### User Profile
-![User Profile](screenshots/06-user-profile.png)
-
----
-
 ## Features
 
 - **Core** — Container (PSR-11), Result monad, Service Locator, Collection, Ref, Newtype
@@ -102,6 +80,47 @@ php vendor/bin/phpunit
 
 ---
 
+## Admin Dashboard
+
+The Phoenix framework includes a full-featured admin dashboard with authentication, user management, and avatar uploads.
+
+### Screenshots
+
+| Login | Register | Dashboard |
+|-------|----------|-----------|
+| ![Login](screenshots/01-login.png) | ![Register](screenshots/02-register.png) | ![Dashboard](screenshots/03-dashboard.png) |
+
+| Users | Create User | User Profile |
+|-------|-------------|--------------|
+| ![Users](screenshots/04-users.png) | ![Create User](screenshots/05-create-user-modal.png) | ![User Profile](screenshots/06-user-profile.png) |
+
+### Dashboard Features
+
+- **Authentication** — Login/Register with bcrypt password hashing
+- **User Management** — Create, view, edit, delete users
+- **Avatar Upload** — Profile pictures with preview
+- **Dashboard Stats** — User count, database tables, memory usage, PHP version
+
+### Access
+
+```bash
+# Start server
+php -S 127.0.0.1:8000 -t public
+
+# Open admin
+http://127.0.0.1:8000/admin/login
+```
+
+### Take Screenshots
+
+```bash
+npm install
+npx playwright install chromium
+npm run screenshots
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -110,6 +129,7 @@ phoenix/
 │   ├── Agents/              # AI Agent classes
 │   ├── Auth/                # User model + states
 │   ├── Controllers/         # HTTP controllers
+│   │   └── Admin/           # Admin dashboard controllers
 │   ├── Repositories/        # Database repositories
 │   ├── Services/            # Business logic services
 │   └── routes.php           # Route definitions
@@ -120,7 +140,7 @@ phoenix/
 │   ├── Console/             # CLI Application + Commands
 │   ├── Core/                # Container, Result, Collection, Ref, Newtype
 │   ├── CQRS/                # Command Bus, Query Bus
-│   ├── Database/            # Connection, Repository, Transaction
+│   ├── Database/            # Connection, Repository, Transaction, Drivers
 │   ├── EventSourcing/       # Event, AggregateRoot, EventStore
 │   ├── Http/                # Router
 │   ├── Lock/                # DistributedLock
@@ -133,10 +153,16 @@ phoenix/
 │   ├── Support/             # helpers.php
 │   ├── View/                # View, Factory
 │   └── WebSocket/           # Server, Framing, PubSub, SessionManager, UploadHandler
+├── views/
+│   └── admin/               # Admin dashboard views
 ├── tests/
 │   └── Unit/                # PHPUnit tests
 ├── public/
 │   └── index.php            # Entry point
+├── storage/
+│   └── uploads/avatars/     # User avatars
+├── screenshots/             # Playwright screenshots
+├── screenshots.js           # Screenshot script
 ├── phoenix                  # CLI entry point
 ├── composer.json
 └── phpunit.xml.dist
