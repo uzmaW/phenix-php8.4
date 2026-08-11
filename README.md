@@ -15,6 +15,28 @@ Phoenix is a modern, Rust-inspired PHP 8.2+ framework combining MVC + MVVM archi
 
 ---
 
+## Admin Dashboard
+
+### Login
+![Login](screenshots/01-login.png)
+
+### Register
+![Register](screenshots/02-register.png)
+
+### Dashboard
+![Dashboard](screenshots/03-dashboard.png)
+
+### Users Management
+![Users](screenshots/04-users.png)
+
+### Create User
+![Create User](screenshots/05-create-user-modal.png)
+
+### User Profile
+![User Profile](screenshots/06-user-profile.png)
+
+---
+
 ## Features
 
 - **Core** — Container (PSR-11), Result monad, Service Locator, Collection, Ref, Newtype
