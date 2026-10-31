@@ -124,16 +124,26 @@ class PaymentController {
     }
 
     public function paypalSuccess(): string {
-        $orderId = $_GET['token'] ?? '';
+        $orderId  = $_GET['token'] ?? '';
         $captured = null;
-        if ($orderId) {
-            $paypal = new PayPalService(sandbox: true);
-            $result = $paypal->captureOrder($orderId);
+
+        // Only attempt capture when real credentials are configured
+        $hasCredentials = !empty($_ENV['PAYPAL_CLIENT_ID'] ?? getenv('PAYPAL_CLIENT_ID'));
+        if ($orderId && $hasCredentials) {
+            $paypal   = new PayPalService(sandbox: true);
+            $result   = $paypal->captureOrder($orderId);
             $captured = $result->isOk() ? $result->unwrap() : null;
+        } elseif ($orderId) {
+            // Demo mode: show synthetic captured state
+            $captured = ['status' => 'COMPLETED (demo)'];
         }
+
         return Factory::make('admin/layouts/admin', [
-            'title' => 'PayPal Payment Successful',
-            'content' => Factory::make('admin/payments/paypal_success', ['orderId' => $orderId, 'captured' => $captured])->render(),
+            'title'   => 'PayPal Payment Successful',
+            'content' => Factory::make('admin/payments/paypal_success', [
+                'orderId'  => $orderId,
+                'captured' => $captured,
+            ])->render(),
             'currentPage' => 'payments',
         ])->render();
     }
