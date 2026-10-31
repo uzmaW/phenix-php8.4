@@ -16,57 +16,141 @@ interface Builder
 /**
  * Fluent builder base class
  */
-abstract class BaseBuilder
+abstract class BaseBuilder implements Builder
 {
-    use MarkerTrait;
-
-    public function __construct() {}
-
-    /** Enable method chaining */
-    public function and(): self
-    {
-        return $this;
-    }
-
-    /** Validate the object being built */
+    /** Validate the object being built, returns list of error messages */
     abstract protected function validate(): array;
 
     /** Build the final object */
     abstract public function build(): object;
+
+    /** Enable method chaining */
+    public function and(): static
+    {
+        return $this;
+    }
 }
 
 /**
- * Generic fluent builder
+ * Generic fluent builder. Constructor arguments are matched by name
+ * (reflection), so property declaration order no longer matters.
  */
 class FluentBuilder
 {
     private array $properties = [];
     private array $validators = [];
 
-    public function __construct(private string $class_name) {}
+    public function __construct(private readonly string $class_name) {}
 
     public function set(string $property, mixed $value): self
     {
         $this->properties[$property] = $value;
+
+        return $this;
+    }
+
+    public function set_many(array $properties): self
+    {
+        foreach ($properties as $property => $value) {
+            $this->properties[$property] = $value;
+        }
+
         return $this;
     }
 
     public function validate(callable $validator): self
     {
         $this->validators[] = $validator;
+
         return $this;
     }
 
     public function build(): object
     {
         foreach ($this->validators as $validator) {
-            $validation_result = $validator($this->properties);
-            if (!$validation_result) {
+            if (!($validator)($this->properties)) {
                 throw new \InvalidArgumentException('Validation failed');
             }
         }
 
-        return new $this->class_name(...array_values($this->properties));
+        return BuilderFactory::instantiate($this->class_name, $this->properties);
+    }
+}
+
+/**
+ * Complex builder with named build steps, target class and post-build hooks
+ */
+class ComplexBuilder extends BaseBuilder
+{
+    private array $build_steps = [];
+    private array $post_build_hooks = [];
+
+    public function __construct(private readonly string $target_class) {}
+
+    /** Target class built by this builder */
+    public function target(string $class): self
+    {
+        $this->target_class = $class;
+
+        return $this;
+    }
+
+    public function add_step(string $name, callable $step): self
+    {
+        $this->build_steps[$name] = $step;
+
+        return $this;
+    }
+
+    public function add_post_build_hook(callable $hook): self
+    {
+        $this->post_build_hooks[] = $hook;
+
+        return $this;
+    }
+
+    protected function validate(): array
+    {
+        $errors = [];
+
+        foreach ($this->build_steps as $name => $step) {
+            try {
+                $step_result = $step();
+            } catch (\Throwable $e) {
+                $errors[] = "Step '$name' threw: " . $e->getMessage();
+                continue;
+            }
+
+            if ($step_result === false || $step_result === null) {
+                $errors[] = "Step '$name' failed";
+            }
+        }
+
+        return $errors;
+    }
+
+    public function build(): object
+    {
+        $validation_errors = $this->validate();
+        if ($validation_errors !== []) {
+            throw new \InvalidArgumentException('Build validation failed: ' . implode(', ', $validation_errors));
+        }
+
+        $object_data = [];
+        foreach ($this->build_steps as $step) {
+            $step_result = $step();
+            if (is_array($step_result)) {
+                $object_data = array_merge($object_data, $step_result);
+            }
+        }
+
+        $object = BuilderFactory::instantiate($this->target_class, $object_data);
+
+        foreach ($this->post_build_hooks as $hook) {
+            $hook($object);
+        }
+
+        return $object;
     }
 }
 
@@ -79,63 +163,55 @@ class BuilderFactory
     {
         return new FluentBuilder($class);
     }
-}
 
-/**
- * Complex builder with nested objects
- */
-class ComplexBuilder extends BaseBuilder
-{
-    private array $build_steps = [];
-    private array $post_build_hooks = [];
-
-    public function add_step(string $name, callable $step): self
+    /**
+     * Instantiate $class with named constructor arguments.
+     * Argument order does not matter; unknown names fail fast with a
+     * descriptive exception instead of an engine Error.
+     */
+    public static function instantiate(string $class, array $arguments): object
     {
-        $this->build_steps[$name] = $step;
-        return $this;
-    }
+        $reflection = new \ReflectionClass($class);
 
-    public function add_post_build_hook(callable $hook): self
-    {
-        $this->post_build_hooks[] = $hook;
-        return $this;
-    }
+        if (!$reflection->isInstantiable()) {
+            throw new \InvalidArgumentException("Class $class is not instantiable");
+        }
 
-    protected function validate(): array
-    {
-        $errors = [];
+        $constructor = $reflection->getConstructor();
+        $parameters = $constructor?->getParameters() ?? [];
+        $allowed = array_map(
+            static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+            $parameters,
+        );
 
-        foreach ($this->build_steps as $step) {
-            $step_result = $step();
-            if (!$step_result) {
-                $errors[] = 'Step failed';
+        $unknown = array_diff(array_keys($arguments), $allowed);
+        if ($unknown !== []) {
+            throw new \InvalidArgumentException(sprintf(
+                'Unknown constructor argument(s) for %s: %s',
+                $class,
+                implode(', ', $unknown),
+            ));
+        }
+
+        $missing = [];
+        foreach ($parameters as $parameter) {
+            if ($parameter->isVariadic()
+                || array_key_exists($parameter->getName(), $arguments)
+                || $parameter->isDefaultValueAvailable()
+            ) {
+                continue;
             }
+            $missing[] = '$' . $parameter->getName();
         }
 
-        return $errors;
-    }
-
-    public function build(): object
-    {
-        $validation_errors = $this->validate();
-        if (!empty($validation_errors)) {
-            throw new \InvalidArgumentException('Build validation failed: ' . implode(', ', $validation_errors));
+        if ($missing !== []) {
+            throw new \InvalidArgumentException(sprintf(
+                'Missing required argument(s) for %s: %s',
+                $class,
+                implode(', ', $missing),
+            ));
         }
 
-        $object_data = [];
-        foreach ($this->build_steps as $step) {
-            $step_result = $step();
-            if ($step_result) {
-                $object_data = array_merge($object_data, $step_result);
-            }
-        }
-
-        $object = new $this->target_class(...$object_data);
-
-        foreach ($this->post_build_hooks as $hook) {
-            $hook($object);
-        }
-
-        return $object;
+        return $reflection->newInstanceArgs($arguments);
     }
 }

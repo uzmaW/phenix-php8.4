@@ -3,18 +3,15 @@ declare(strict_types=1);
 
 namespace Phoenix\Collections;
 
-use Phoenix\Core\MarkerTrait;
-
 /**
  * High-performance HashSet (unique items) with set operations
- * SHA-256 hashing for unique identification, optimized union/intersection/difference
+ * Fast membership testing, optimized union/intersection/difference
  * Inspired by Rust-like PHP framework's OptimizedHashSet
  */
 class OptimizedHashSet implements \IteratorAggregate, \Countable
 {
-    use MarkerTrait;
-
     private const DEFAULT_CAPACITY = 16;
+    private const LOAD_FACTOR = 0.7;
     private int $capacity;
     private array $items = [];
     private int $size = 0;
@@ -24,7 +21,7 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
     {
         $this->capacity = self::DEFAULT_CAPACITY;
 
-        foreach (array_unique($items) as $item) {
+        foreach ($items as $item) {
             $this->add($item);
         }
     }
@@ -45,14 +42,14 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
         $this->hash_count++;
         $key = $this->hash_key($item);
 
-        if (isset($this->items[$key])) {
+        if (array_key_exists($key, $this->items)) {
             return $this;
         }
 
         $this->items[$key] = $item;
         $this->size++;
 
-        if ($this->size >= $this->capacity * 0.7) {
+        if ($this->size >= $this->capacity * self::LOAD_FACTOR) {
             $this->resize();
         }
 
@@ -64,21 +61,24 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
         foreach ($items as $item) {
             $this->add($item);
         }
+
         return $this;
     }
 
     /** Check if item exists */
     public function contains(mixed $item): bool
     {
-        $key = $this->hash_key($item);
-        return isset($this->items[$key]);
+        $this->hash_count++;
+
+        return array_key_exists($this->hash_key($item), $this->items);
     }
 
     /** Remove item */
     public function remove(mixed $item): bool
     {
         $key = $this->hash_key($item);
-        if (isset($this->items[$key])) {
+
+        if (array_key_exists($key, $this->items)) {
             unset($this->items[$key]);
             $this->size--;
 
@@ -88,6 +88,7 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
 
             return true;
         }
+
         return false;
     }
 
@@ -97,6 +98,7 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
         $result = new OptimizedHashSet();
         $result->add_many($this->to_array());
         $result->add_many($other->to_array());
+
         return $result;
     }
 
@@ -104,11 +106,12 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
     public function intersection(OptimizedHashSet $other): OptimizedHashSet
     {
         $result = new OptimizedHashSet();
-        foreach ($this->to_array() as $item) {
+        foreach ($this->items as $item) {
             if ($other->contains($item)) {
                 $result->add($item);
             }
         }
+
         return $result;
     }
 
@@ -116,48 +119,54 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
     public function difference(OptimizedHashSet $other): OptimizedHashSet
     {
         $result = new OptimizedHashSet();
-        foreach ($this->to_array() as $item) {
+        foreach ($this->items as $item) {
             if (!$other->contains($item)) {
                 $result->add($item);
             }
         }
+
         return $result;
     }
 
-    /** Private hash key generation */
+    /**
+     * Private hash key generation.
+     * Scalars use their own value (stable + cheap), everything else is digested.
+     */
     private function hash_key(mixed $item): string
     {
-        return 'hash_' . str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(hash('sha256', serialize($item), true)));
-    }
-
-    /** Resize to larger capacity */
-    private function resize(): void
-    {
-        $new_capacity = $this->capacity * 2;
-        $new_items = [];
-
-        foreach ($this->items as $key => $item) {
-            $new_key = $this->hash_key($item);
-            $new_items[$new_key] = $item;
+        if (is_string($item)) {
+            return 's:' . $item;
         }
 
-        $this->items = $new_items;
-        $this->capacity = $new_capacity;
+        if (is_int($item)) {
+            return 'i:' . $item;
+        }
+
+        if (is_bool($item)) {
+            return 'b:' . (int) $item;
+        }
+
+        if ($item === null) {
+            return 'null';
+        }
+
+        if (is_float($item)) {
+            return 'f:' . serialize($item);
+        }
+
+        return 'h:' . hash('xxh128', serialize($item));
+    }
+
+    /** Grow capacity (key digests are capacity independent, no rehash needed) */
+    private function resize(): void
+    {
+        $this->capacity *= 2;
     }
 
     /** Shrink capacity if too empty */
     private function shrink(): void
     {
-        $new_capacity = max(1, (int)($this->capacity / 2));
-        $new_items = [];
-
-        foreach ($this->items as $key => $item) {
-            $new_key = $this->hash_key($item);
-            $new_items[$new_key] = $item;
-        }
-
-        $this->items = $new_items;
-        $this->capacity = $new_capacity;
+        $this->capacity = max(self::DEFAULT_CAPACITY, (int) ($this->capacity / 2));
     }
 
     /** to_array */
@@ -166,10 +175,22 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
         return array_values($this->items);
     }
 
-    /** Get iterator */
-    public function get_iterator(): \Iterator
+    /** Get iterator (yields values only, internal digests stay hidden) */
+    public function getIterator(): \ArrayIterator
     {
-        return new \ArrayIterator($this->items);
+        return new \ArrayIterator($this->to_array());
+    }
+
+    /** Apply callback to every item, returns a new set */
+    public function map(callable $callback): OptimizedHashSet
+    {
+        return new OptimizedHashSet(array_map($callback, $this->to_array()));
+    }
+
+    /** Keep items passing the callback, returns a new set */
+    public function filter(callable $callback): OptimizedHashSet
+    {
+        return new OptimizedHashSet(array_values(array_filter($this->items, $callback)));
     }
 
     /** Performance metrics */
@@ -180,7 +201,6 @@ class OptimizedHashSet implements \IteratorAggregate, \Countable
             'size' => $this->size,
             'hash_count' => $this->hash_count,
             'memory_usage' => memory_get_usage(true),
-            'items' => $this->to_array(),
         ];
     }
 }

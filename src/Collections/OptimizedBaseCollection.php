@@ -3,16 +3,12 @@ declare(strict_types=1);
 
 namespace Phoenix\Collections;
 
-use Phoenix\Core\MarkerTrait;
-
 /**
  * Optimized Base Collection with memory management and performance tracking
  * Inspired by Rust-like PHP framework's OptimizedBaseCollection
  */
 abstract class OptimizedBaseCollection implements Collection
 {
-    use MarkerTrait;
-
     protected array $items = [];
     private ?int $cached_count = null;
     private array $performance_metrics = [];
@@ -25,7 +21,7 @@ abstract class OptimizedBaseCollection implements Collection
 
     public function is_empty(): bool
     {
-        return $this->cached_count === 0 || empty($this->items);
+        return $this->count() === 0;
     }
 
     public function count(): int
@@ -48,7 +44,7 @@ abstract class OptimizedBaseCollection implements Collection
         return $this->items[array_key_last($this->items)] ?? null;
     }
 
-    public function get_iterator(): \Iterator
+    public function getIterator(): \ArrayIterator
     {
         return new \ArrayIterator($this->items);
     }

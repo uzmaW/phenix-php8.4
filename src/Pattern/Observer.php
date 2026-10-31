@@ -18,8 +18,6 @@ interface Observer
  */
 interface Subject
 {
-    use MarkerTrait;
-
     public function attach(Observer $observer): void;
     public function detach(Observer $observer): void;
     public function notify(): void;
@@ -31,11 +29,10 @@ interface Subject
  */
 interface Event
 {
-    use MarkerTrait, StructTagTrait;
-
     public function get_name(): string;
     public function get_payload(): array;
     public function get_source(): object;
+    public function get_struct_tag(): string;
 }
 
 /**
@@ -43,13 +40,11 @@ interface Event
  */
 abstract class BaseEvent implements Event
 {
-    use StructTagTrait;
-
     protected const EVENT_NAME = '';
 
     public function __construct(
         protected object $source,
-        protected array $payload = []
+        protected array $payload = [],
     ) {}
 
     public function get_name(): string
@@ -74,12 +69,10 @@ abstract class BaseEvent implements Event
 }
 
 /**
- * Generic subject implementation with performance optimizations
+ * Generic subject implementation with batch notification support
  */
-class ObservableSubject implements Subject
+class ObservableSubject implements Subject, \Countable
 {
-    use StructTagTrait;
-
     private array $observers = [];
     private mixed $state;
     private array $event_queue = [];
@@ -108,20 +101,28 @@ class ObservableSubject implements Subject
         ];
     }
 
-    public function __construct(private string $subject_name) {}
+    public function __construct(private readonly string $subject_name) {}
+
+    public function get_name(): string
+    {
+        return $this->subject_name;
+    }
+
+    public function count(): int
+    {
+        return count($this->observers);
+    }
 
     public function attach(Observer $observer): void
     {
         self::$metrics['observers_attached']++;
-        $observer_key = spl_object_hash($observer);
-        $this->observers[$observer_key] = $observer;
+        $this->observers[spl_object_hash($observer)] = $observer;
     }
 
     public function detach(Observer $observer): void
     {
         self::$metrics['observers_detached']++;
-        $observer_key = spl_object_hash($observer);
-        unset($this->observers[$observer_key]);
+        unset($this->observers[spl_object_hash($observer)]);
     }
 
     public function notify(): void
@@ -130,12 +131,39 @@ class ObservableSubject implements Subject
 
         if ($this->batch_mode) {
             $this->event_queue[] = $this->state;
+
             return;
         }
 
         foreach ($this->observers as $observer) {
             $observer->update($this);
         }
+    }
+
+    /**
+     * Flush queued batch notifications as a single update per observer
+     * carrying every queued state.
+     */
+    public function flush(): int
+    {
+        if ($this->event_queue === []) {
+            return 0;
+        }
+
+        self::$metrics['batch_operations']++;
+        $queued = $this->event_queue;
+        $this->event_queue = [];
+
+        $previous_state = $this->state;
+        $this->state = $queued;
+
+        foreach ($this->observers as $observer) {
+            $observer->update($this);
+        }
+
+        $this->state = $previous_state;
+
+        return count($queued);
     }
 
     public function set_state(mixed $state): void
@@ -148,9 +176,17 @@ class ObservableSubject implements Subject
         return $this->state;
     }
 
+    public function pending_notifications(): int
+    {
+        return count($this->event_queue);
+    }
+
     public function set_batch_mode(bool $enabled): void
     {
         $this->batch_mode = $enabled;
+        if (!$enabled) {
+            $this->flush();
+        }
     }
 
     public function is_batch_mode(): bool

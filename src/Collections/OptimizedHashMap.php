@@ -3,30 +3,29 @@ declare(strict_types=1);
 
 namespace Phoenix\Collections;
 
-use Phoenix\Core\MarkerTrait;
-
 /**
- * High-performance HashMap (associative array) with optimal bucket sizing
- * O(1) average case lookups, automatic rehashing, batch operations
+ * High-performance HashMap (associative array).
+ *
+ * Backed by a PHP array (itself an ordered hash map with O(1) average-case
+ * lookups) so writes are single-store instead of the dual bucket+data writes
+ * used previously. Key normalization keeps int/string coercion identical to
+ * native PHP arrays, load-factor + rehash bookkeeping and operation metrics
+ * are preserved for observability.
  * Inspired by Rust-like PHP framework's OptimizedHashMap
  */
 class OptimizedHashMap implements \IteratorAggregate, \Countable
 {
-    use MarkerTrait;
-
     private const DEFAULT_CAPACITY = 16;
     private int $capacity;
     private float $load_factor = 0.7;
-    private array $buckets = [];
     private array $data = [];
     private int $size = 0;
     private int $hash_count = 0;
     private int $rehash_count = 0;
 
-    public function __construct(int $capacity = null)
+    public function __construct(?int $capacity = null)
     {
-        $this->capacity = $capacity ?? self::DEFAULT_CAPACITY;
-        $this->buckets = array_fill(0, $this->capacity, []);
+        $this->capacity = max(1, $capacity ?? self::DEFAULT_CAPACITY);
     }
 
     public function count(): int
@@ -41,29 +40,35 @@ class OptimizedHashMap implements \IteratorAggregate, \Countable
 
     public function has(mixed $key): bool
     {
-        $index = $this->hash($key) % $this->capacity;
-        return isset($this->buckets[$index][$key]);
+        $this->hash_count++;
+
+        return \array_key_exists($this->normalize_key($key), $this->data);
     }
 
     public function get(mixed $key): mixed
     {
-        $index = $this->hash($key) % $this->capacity;
-        if (isset($this->buckets[$index][$key])) {
-            return $this->buckets[$index][$key];
-        }
-        return null;
+        $this->hash_count++;
+        $key = $this->normalize_key($key);
+
+        return \array_key_exists($key, $this->data) ? $this->data[$key] : null;
     }
 
     public function set(mixed $key, mixed $value): self
     {
         $this->hash_count++;
-        if ($this->size >= $this->capacity * $this->load_factor) {
-            $this->rehash();
+        $key = $this->normalize_key($key);
+        $is_new = !\array_key_exists($key, $this->data);
+
+        if ($is_new) {
+            if ($this->size + 1 > $this->capacity * $this->load_factor) {
+                $this->capacity *= 2;
+                $this->rehash_count++;
+            }
+            $this->size++;
         }
-        $index = $this->hash($key) % $this->capacity;
-        $this->buckets[$index][$key] = $value;
+
         $this->data[$key] = $value;
-        $this->size++;
+
         return $this;
     }
 
@@ -72,42 +77,32 @@ class OptimizedHashMap implements \IteratorAggregate, \Countable
         foreach ($items as $key => $value) {
             $this->set($key, $value);
         }
+
         return $this;
     }
 
     public function remove(mixed $key): bool
     {
-        $index = $this->hash($key) % $this->capacity;
-        if (isset($this->buckets[$index][$key])) {
-            unset($this->buckets[$index][$key]);
+        $key = $this->normalize_key($key);
+
+        if (\array_key_exists($key, $this->data)) {
             unset($this->data[$key]);
             $this->size--;
-            $this->maybe_reindex();
+
             return true;
         }
+
         return false;
     }
 
     public function keys(): array
     {
-        $keys = [];
-        foreach ($this->buckets as $bucket) {
-            foreach ($bucket as $key => $value) {
-                $keys[] = $key;
-            }
-        }
-        return $keys;
+        return \array_keys($this->data);
     }
 
     public function values(): array
     {
-        $values = [];
-        foreach ($this->buckets as $bucket) {
-            foreach ($bucket as $key => $value) {
-                $values[] = $value;
-            }
-        }
-        return $values;
+        return \array_values($this->data);
     }
 
     public function to_array(): array
@@ -117,72 +112,63 @@ class OptimizedHashMap implements \IteratorAggregate, \Countable
 
     public function union(OptimizedHashMap $other): OptimizedHashMap
     {
-        $result = new OptimizedHashMap($this->capacity + $other->capacity);
+        $result = new OptimizedHashMap(max($this->capacity, $other->capacity));
         $result->set_many($this->to_array());
         $result->set_many($other->to_array());
+
         return $result;
     }
 
     public function intersection(OptimizedHashMap $other): OptimizedHashMap
     {
         $result = new OptimizedHashMap();
-        foreach ($this->to_array() as $key => $value) {
+        foreach ($this->data as $key => $value) {
             if ($other->has($key)) {
                 $result->set($key, $value);
             }
         }
+
         return $result;
     }
 
     public function difference(OptimizedHashMap $other): OptimizedHashMap
     {
         $result = new OptimizedHashMap();
-        foreach ($this->to_array() as $key => $value) {
+        foreach ($this->data as $key => $value) {
             if (!$other->has($key)) {
                 $result->set($key, $value);
             }
         }
+
         return $result;
     }
 
-    private function hash(mixed $key): int
+    /**
+     * PHP array keys only accept int|string. Keep int/string keys untouched
+     * (identical semantics to native arrays) and namespace everything else.
+     */
+    private function normalize_key(mixed $key): mixed
     {
-        return abs(crc32(serialize($key)));
-    }
-
-    private function rehash(): void
-    {
-        $old_buckets = $this->buckets;
-        $old_capacity = $this->capacity;
-        $this->capacity *= 2;
-        $this->buckets = array_fill(0, $this->capacity, []);
-        $this->data = [];
-        $this->size = 0;
-        $this->rehash_count++;
-        foreach ($old_buckets as $bucket) {
-            foreach ($bucket as $key => $value) {
-                $index = $this->hash($key) % $this->capacity;
-                $this->buckets[$index][$key] = $value;
-                $this->data[$key] = $value;
-                $this->size++;
-            }
+        if (\is_string($key) || \is_int($key)) {
+            return $key;
         }
-    }
 
-    private function maybe_reindex(): void
-    {
-        $new_buckets = [];
-        foreach ($this->buckets as $i => $bucket) {
-            $compacted = [];
-            foreach ($bucket as $key => $value) {
-                $compacted[$key] = $value;
-            }
-            $new_buckets[$i] = $compacted;
+        if (\is_bool($key)) {
+            return (int) $key;
         }
-        $this->buckets = $new_buckets;
+
+        if ($key === null) {
+            return 'k:null';
+        }
+
+        if (\is_float($key)) {
+            return 'f:' . $key;
+        }
+
+        return 'k:' . \serialize($key);
     }
 
-    public function get_iterator(): \Iterator
+    public function getIterator(): \ArrayIterator
     {
         return new \ArrayIterator($this->data);
     }
@@ -195,8 +181,7 @@ class OptimizedHashMap implements \IteratorAggregate, \Countable
             'load_factor' => $this->load_factor,
             'hash_count' => $this->hash_count,
             'rehash_count' => $this->rehash_count,
-            'memory_usage' => memory_get_usage(true),
-            'items' => $this->to_array(),
+            'memory_usage' => \memory_get_usage(true),
         ];
     }
 }

@@ -26,7 +26,7 @@ final class Collection implements \IteratorAggregate, \Countable
         return $this->items;
     }
 
-    public function first(callable $callback = null): mixed
+    public function first(?callable $callback = null): mixed
     {
         if ($callback) {
             foreach ($this->items as $item) {

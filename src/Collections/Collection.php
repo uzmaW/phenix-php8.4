@@ -7,7 +7,7 @@ namespace Phoenix\Collections;
  * Collection interface
  * Inspired by Rust-like PHP framework's Collections
  */
-interface Collection
+interface Collection extends \IteratorAggregate, \Countable
 {
     /** Check if collection is empty */
     public function is_empty(): bool;
@@ -19,8 +19,6 @@ interface Collection
     public function first(): mixed;
     /** Get last item */
     public function last(): mixed;
-    /** Get iterator */
-    public function get_iterator(): \Iterator;
     /** Clear cache */
     public function clear_cache(): void;
     /** Get performance metrics */
