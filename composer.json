@@ -18,6 +18,14 @@
             "Phoenix\\": "src/",
             "App\\": "app/"
         },
+        "classmap": [
+            "src/Error/Error.php",
+            "src/Macros/MacroSystem.php",
+            "src/Pattern/Builder.php",
+            "src/Pattern/Observer.php",
+            "src/Pattern/StateMachine.php",
+            "src/Pattern/StateMachineBuilder.php"
+        ],
         "files": [
             "src/Support/helpers.php"
         ]
