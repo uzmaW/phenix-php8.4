@@ -1,5 +1,8 @@
 parameters:
     level: 5
+    # Analyze for the lowest supported PHP version so QA checks 8.2 semantics
+    # even when the phpstan job itself runs on PHP 8.5.
+    phpVersion: 80200
     paths:
         - src
         - app

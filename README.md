@@ -75,49 +75,90 @@ php phoenix info
 ### Run Tests
 
 ```bash
-php vendor/bin/phpunit
+php vendor/bin/phpunit      # Full suite including business-case integration tests
+npm run test:examples       # Run all business-case examples standalone
 ```
 
 ---
 
 ## Admin Dashboard
 
-The Phoenix framework includes a full-featured admin dashboard with authentication, user management, and avatar uploads.
+The Phoenix framework includes a full-featured admin dashboard with authentication, user management, charts/analytics, and a payments hub (Stripe + PayPal).
 
 ### Screenshots
 
-| Login | Register | Dashboard |
-|-------|----------|-----------|
-| ![Login](screenshots/01-login.png) | ![Register](screenshots/02-register.png) | ![Dashboard](screenshots/03-dashboard.png) |
+Complete admin workflow captured with Playwright (login → dashboard → charts → user CRUD → analytics → payments):
 
-| Users | Create User | User Profile |
-|-------|-------------|--------------|
-| ![Users](screenshots/04-users.png) | ![Create User](screenshots/05-create-user-modal.png) | ![User Profile](screenshots/06-user-profile.png) |
+| Login | Register | Dashboard | Dashboard Charts |
+|-------|----------|-----------|------------------|
+| ![Login](screenshots/01-login.png) | ![Register](screenshots/02-register.png) | ![Dashboard](screenshots/03-dashboard.png) | ![Charts](screenshots/03b-dashboard-charts.png) |
+
+| Users | Create User | User Created | User Profile |
+|-------|-------------|--------------|--------------|
+| ![Users](screenshots/04-users.png) | ![Create User](screenshots/05-create-user-modal.png) | ![Created](screenshots/05b-user-created.png) | ![Profile](screenshots/06-user-profile.png) |
+
+| Edit User | Analytics | Payments Hub | Stripe Success |
+|-----------|-----------|--------------|----------------|
+| ![Edit](screenshots/07-edit-user-modal.png) | ![Analytics](screenshots/08-analytics.png) | ![Payments](screenshots/09-payments.png) | ![Stripe](screenshots/11-stripe-success.png) |
+
+| Overview | Activity + Traffic | Revenue Chart | Performance Radar |
+|----------|--------------------|---------------|-------------------|
+| ![Overview](screenshots/00-dashboard-overview.png) | ![Activity](screenshots/03c-dashboard-charts-bottom.png) | ![Revenue](screenshots/08b-analytics-revenue.png) | ![Radar](screenshots/08c-analytics-radar.png) |
+
+| Setup Guide | Stripe Cancel | PayPal Cancel | PayPal Success |
+|-------------|---------------|---------------|----------------|
+| ![Setup](screenshots/09b-payments-setup-guide.png) | ![Stripe-Cancel](screenshots/10-stripe-cancel.png) | ![PayPal-Cancel](screenshots/12-paypal-cancel.png) | ![PayPal-OK](screenshots/13-paypal-success.png) |
+
+### Workflow Videos
+
+`npm run workflow` records WebM videos of how the system and admin workflows actually behave (real clicks, form submissions and page transitions):
+
+| Video | What it shows |
+|-------|---------------|
+| `videos/01-complete-admin-workflow.webm` | End-to-end admin journey: register, login, dashboard, user CRUD, analytics, payments |
+| `videos/02-dashboard-analytics.webm` | Dashboard stats and animated charts, analytics pages scrolled through |
+| `videos/03-user-management.webm` | Open create-user modal → submit form → user created → profile → edit modal |
+| `videos/04-payments-stripe-paypal.webm` | Payments hub, Stripe and PayPal success/cancel flows |
 
 ### Dashboard Features
 
 - **Authentication** — Login/Register with bcrypt password hashing
-- **User Management** — Create, view, edit, delete users
+- **User Management** — Create, view, edit, delete users (full CRUD workflow)
 - **Avatar Upload** — Profile pictures with preview
 - **Dashboard Stats** — User count, database tables, memory usage, PHP version
+- **Charts & Analytics** — Chart.js dashboards for health, activity, traffic and revenue
+- **Payments Hub** — Stripe Checkout and PayPal Orders integrations with success/cancel flows and webhook verification
 
 ### Access
 
 ```bash
 # Start server
-php -S 127.0.0.1:8000 -t public
+php -S 127.0.0.1:7073 -t public
 
 # Open admin
-http://127.0.0.1:8000/admin/login
+http://127.0.0.1:7073/admin/login
 ```
 
-### Take Screenshots
+### Capture Screenshots and Videos
 
 ```bash
 npm install
 npx playwright install chromium
-npm run screenshots
+npm run screenshots   # screenshots only
+npm run workflow      # complete workflow screenshots + 4 workflow videos
 ```
+
+---
+
+## Business Cases
+
+Runnable, self-documenting scenarios that wire the framework's building blocks into realistic domain flows. Run single examples with `php examples/business-cases/<Name>.php` or all of them via `npm run test:examples`. They are also integrated into the PHPUnit suite (`tests/Unit/BusinessCasesTest.php`).
+
+| Example | Feature | What it demonstrates |
+|---------|---------|----------------------|
+| `OrderProcessing.php` | Core collections + state machine | Order lifecycle with payment guard, observers for shipping/invoicing, async settlement, set algebra over SKUs, macro-generated repository |
+| `SubscriptionPayments.php` | **Payments Hub (new)** | Provider fallback (Stripe → PayPal → demo mode, matching the admin payments hub), subscription state machine that blocks activation until payment is captured, saga-based entitlement provisioning with compensation on failure, checkout rate limiting |
+| `AnalyticsAggregation.php` | **Analytics dashboard (new)** | Event feed ingestion with `OptimizedVector`, per-route rollups with `OptimizedHashMap`, unique-visitor cohorts with `OptimizedHashSet` set algebra, parallel chart refreshes with `AsyncResult`, dashboard API throttling |
 
 ---
 
@@ -161,8 +202,16 @@ phoenix/
 │   └── index.php            # Entry point
 ├── storage/
 │   └── uploads/avatars/     # User avatars
+├── examples/
+│   └── business-cases/      # Runnable business scenarios (integrated in phpunit)
+├── tests/
+│   └── Unit/                # PHPUnit tests (incl. BusinessCasesTest integration)
+├── public/
+│   └── index.php            # Entry point
+├── videos/                   # Playwright workflow videos (webm)
 ├── screenshots/             # Playwright screenshots
 ├── screenshots.js           # Screenshot script
+├── admin-workflow.js        # Complete workflow recorder (screenshots + videos)
 ├── phoenix                  # CLI entry point
 ├── composer.json
 └── phpunit.xml.dist

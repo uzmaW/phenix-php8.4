@@ -165,15 +165,19 @@ final class AiAndPatternsTest extends TestCase
 
         $result = $bus->dispatch(new TestCommand('test'));
         $this->assertTrue($handled);
-        $this->assertSame('handled: test', $result);
+        // dispatch() now always returns a Result monad
+        $this->assertInstanceOf(\Phoenix\Core\Result::class, $result);
+        $this->assertTrue($result->isOk());
+        $this->assertSame('handled: test', $result->unwrap());
         $this->assertTrue($bus->hasHandler(TestCommand::class));
     }
 
     public function test_command_bus_throws_on_no_handler(): void
     {
-        $this->expectException(\RuntimeException::class);
         $bus = new CommandBus();
-        $bus->dispatch(new TestCommand('test'));
+        // dispatch() now returns Result::err() instead of throwing
+        $result = $bus->dispatch(new TestCommand('test'));
+        $this->assertTrue($result->isErr());
     }
 
     public function test_saga_executes_steps(): void
@@ -184,8 +188,12 @@ final class AiAndPatternsTest extends TestCase
         $saga->addStep('step1', function () use (&$steps) { $steps[] = 'step1'; return 'ok'; }, function () {});
         $saga->addStep('step2', function () use (&$steps) { $steps[] = 'step2'; return 'ok'; }, function () {});
 
-        $results = $saga->execute();
-        $this->assertCount(2, $results);
+        $result = $saga->execute();
+        // execute() now returns a Result monad
+        $this->assertInstanceOf(\Phoenix\Core\Result::class, $result);
+        $this->assertTrue($result->isOk());
+        $payload = $result->unwrap();
+        $this->assertCount(2, $payload['results']);
         $this->assertSame(['step1', 'step2'], $steps);
         $this->assertTrue($saga->isExecuted());
     }
@@ -198,12 +206,10 @@ final class AiAndPatternsTest extends TestCase
         $saga->addStep('step1', fn() => 'ok', function () use (&$compensated) { $compensated = true; });
         $saga->addStep('step2', function () { throw new \Exception('fail'); }, function () {});
 
-        try {
-            $saga->execute();
-        } catch (\Exception $e) {
-            $this->assertSame('fail', $e->getMessage());
-        }
-
+        $result = $saga->execute();
+        // execute() returns Result::err() on failure — no exception thrown
+        $this->assertInstanceOf(\Phoenix\Core\Result::class, $result);
+        $this->assertTrue($result->isErr());
         $this->assertTrue($compensated);
     }
 
