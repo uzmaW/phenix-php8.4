@@ -50,7 +50,7 @@ final class EventStore
      * persisted event count must match; otherwise Result::err() is returned
      * without writing anything (caller should retry after reload).
      *
-     * @return Result<int>  Ok(number of events saved) or Err(conflict message)
+     * @return Result Ok(value is the number of events saved) or Err(value is conflict message)
      */
     public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): Result
     {

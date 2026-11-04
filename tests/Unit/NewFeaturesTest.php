@@ -354,7 +354,7 @@ final class NewFeaturesTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
 
-        new \Phoenix\Pattern\FluentBuilder(Line::class)
+        (new \Phoenix\Pattern\FluentBuilder(Line::class))
             ->validate(fn (array $props): bool => false)
             ->build();
     }

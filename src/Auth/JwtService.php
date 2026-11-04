@@ -74,7 +74,7 @@ final class JwtService
     /**
      * Fully validate a token: structure, signature, expiry, nbf, revocation.
      *
-     * @return Result<array<string,mixed>>  Ok(claims) or Err(reason string)
+     * @return Result Ok(value is array<string,mixed> claims) or Err(value is reason string)
      */
     public function validate(string $token): Result
     {
@@ -123,7 +123,7 @@ final class JwtService
     /**
      * Exchange a valid refresh token for a new access token.
      *
-     * @return Result<string>  Ok(new access token) or Err(reason)
+     * @return Result Ok(value is the new access token string) or Err(value is reason)
      */
     public function refresh(string $refreshToken): Result
     {

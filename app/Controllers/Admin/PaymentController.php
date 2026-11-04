@@ -64,7 +64,7 @@ class PaymentController {
     public function stripeWebhook(): void {
         $payload = file_get_contents('php://input');
         $sigHeader = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
-        $webhookSecret = $_ENV['STRIPE_WEBHOOK_SECRET'] ?? getenv('STRIPE_WEBHOOK_SECRET') ?? '';
+        $webhookSecret = (string) ($_ENV['STRIPE_WEBHOOK_SECRET'] ?? getenv('STRIPE_WEBHOOK_SECRET') ?: '');
 
         if (empty($webhookSecret)) {
             http_response_code(400);

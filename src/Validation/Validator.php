@@ -191,7 +191,7 @@ final class Validator
     /**
      * Validate $data against all registered field rules.
      *
-     * @return Result<array<string,mixed>>  Ok($data) or Err(['field' => ['error', ...]])
+     * @return Result Ok(value is array<string,mixed> $data) or Err(value is array<array-key,array<int,string>> field errors)
      */
     public function validate(array $data): Result
     {

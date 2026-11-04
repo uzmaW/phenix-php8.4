@@ -23,8 +23,9 @@ jobs:
     name: PHPUnit Tests (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        php: ['8.2', '8.3', '8.4']
+        php: ['8.2', '8.3', '8.4', '8.5']
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -36,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-progress --prefer-dist
       - name: Run tests
-        run: vendor/bin/phpunit --coverage-text
+        run: vendor/bin/phpunit --coverage-text | tee coverage.txt
       - name: Upload coverage
         if: matrix.php == '8.4'
         uses: actions/upload-artifact@v4

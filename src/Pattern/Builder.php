@@ -85,7 +85,7 @@ class ComplexBuilder extends BaseBuilder
     private array $build_steps = [];
     private array $post_build_hooks = [];
 
-    public function __construct(private readonly string $target_class) {}
+    public function __construct(private string $target_class) {}
 
     /** Target class built by this builder */
     public function target(string $class): self
