@@ -101,6 +101,14 @@ Complete admin workflow captured with Playwright (login → dashboard → charts
 |-----------|-----------|--------------|----------------|
 | ![Edit](screenshots/07-edit-user-modal.png) | ![Analytics](screenshots/08-analytics.png) | ![Payments](screenshots/09-payments.png) | ![Stripe](screenshots/11-stripe-success.png) |
 
+| Overview | Activity + Traffic | Revenue Chart | Performance Radar |
+|----------|--------------------|---------------|-------------------|
+| ![Overview](screenshots/00-dashboard-overview.png) | ![Activity](screenshots/03c-dashboard-charts-bottom.png) | ![Revenue](screenshots/08b-analytics-revenue.png) | ![Radar](screenshots/08c-analytics-radar.png) |
+
+| Setup Guide | Stripe Cancel | PayPal Cancel | PayPal Success |
+|-------------|---------------|---------------|----------------|
+| ![Setup](screenshots/09b-payments-setup-guide.png) | ![Stripe-Cancel](screenshots/10-stripe-cancel.png) | ![PayPal-Cancel](screenshots/12-paypal-cancel.png) | ![PayPal-OK](screenshots/13-paypal-success.png) |
+
 ### Workflow Videos
 
 `npm run workflow` records WebM videos of how the system and admin workflows actually behave (real clicks, form submissions and page transitions):
