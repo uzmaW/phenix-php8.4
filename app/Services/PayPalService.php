@@ -1,9 +1,13 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services;
+
 use Phoenix\Core\Result;
 
-final class PayPalService {
+final class PayPalService
+{
     private string $clientId;
     private string $clientSecret;
     private string $baseUrl;
@@ -13,7 +17,7 @@ final class PayPalService {
     public function __construct(
         ?string $clientId = null,
         ?string $clientSecret = null,
-        bool $sandbox = true
+        bool $sandbox = true,
     ) {
         $this->clientId = $clientId ?? (string) ($_ENV['PAYPAL_CLIENT_ID'] ?? getenv('PAYPAL_CLIENT_ID') ?: '');
         $this->clientSecret = $clientSecret ?? (string) ($_ENV['PAYPAL_CLIENT_SECRET'] ?? getenv('PAYPAL_CLIENT_SECRET') ?: '');
@@ -28,14 +32,16 @@ final class PayPalService {
         string $currency = 'USD',
         string $returnUrl = '',
         string $cancelUrl = '',
-        array $metadata = []
+        array $metadata = [],
     ): Result {
         if (empty($this->clientId) || empty($this->clientSecret)) {
             return Result::err('PayPal credentials not configured');
         }
 
         $tokenResult = $this->getAccessToken();
-        if ($tokenResult->isErr()) { return $tokenResult; }
+        if ($tokenResult->isErr()) {
+            return $tokenResult;
+        }
 
         $body = [
             'intent' => 'CAPTURE',
@@ -56,12 +62,18 @@ final class PayPalService {
         ];
 
         $result = $this->request('POST', '/v2/checkout/orders', $body);
-        if ($result->isErr()) { return $result; }
+        if ($result->isErr()) {
+            return $result;
+        }
 
         $data = $result->unwrap();
         $approvalUrl = '';
         foreach (($data['links'] ?? []) as $link) {
-            if ($link['rel'] === 'approve') { $approvalUrl = $link['href']; break; }
+            if ($link['rel'] === 'approve') {
+                $approvalUrl = $link['href'];
+
+                break;
+            }
         }
 
         return Result::ok([
@@ -72,22 +84,29 @@ final class PayPalService {
     }
 
     /** Capture payment for an approved order */
-    public function captureOrder(string $orderId): Result {
+    public function captureOrder(string $orderId): Result
+    {
         $tokenResult = $this->getAccessToken();
-        if ($tokenResult->isErr()) { return $tokenResult; }
+        if ($tokenResult->isErr()) {
+            return $tokenResult;
+        }
 
         return $this->request('POST', "/v2/checkout/orders/{$orderId}/capture");
     }
 
     /** Get order details */
-    public function getOrder(string $orderId): Result {
+    public function getOrder(string $orderId): Result
+    {
         $tokenResult = $this->getAccessToken();
-        if ($tokenResult->isErr()) { return $tokenResult; }
+        if ($tokenResult->isErr()) {
+            return $tokenResult;
+        }
 
         return $this->request('GET', "/v2/checkout/orders/{$orderId}");
     }
 
-    private function getAccessToken(): Result {
+    private function getAccessToken(): Result
+    {
         if ($this->accessToken !== null && time() < $this->tokenExpiry) {
             return Result::ok($this->accessToken);
         }
@@ -107,16 +126,22 @@ final class PayPalService {
         $error = curl_error($ch);
         curl_close($ch);
 
-        if ($body === false) { return Result::err('PayPal auth failed: ' . $error); }
+        if ($body === false) {
+            return Result::err('PayPal auth failed: ' . $error);
+        }
         $data = json_decode($body, true);
-        if ($httpCode !== 200) { return Result::err($data['error_description'] ?? 'Auth failed'); }
+        if ($httpCode !== 200) {
+            return Result::err($data['error_description'] ?? 'Auth failed');
+        }
 
         $this->accessToken = $data['access_token'];
-        $this->tokenExpiry = time() + (int)($data['expires_in'] ?? 3600) - 60;
+        $this->tokenExpiry = time() + (int) ($data['expires_in'] ?? 3600) - 60;
+
         return Result::ok($this->accessToken);
     }
 
-    private function request(string $method, string $endpoint, ?array $body = null): Result {
+    private function request(string $method, string $endpoint, ?array $body = null): Result
+    {
         $ch = curl_init($this->baseUrl . $endpoint);
         $headers = [
             'Authorization: Bearer ' . $this->accessToken,
@@ -141,11 +166,14 @@ final class PayPalService {
         $error = curl_error($ch);
         curl_close($ch);
 
-        if ($response === false) { return Result::err('PayPal request failed: ' . $error); }
+        if ($response === false) {
+            return Result::err('PayPal request failed: ' . $error);
+        }
         $data = json_decode($response, true) ?? [];
         if ($httpCode >= 400) {
             return Result::err($data['message'] ?? $data['error_description'] ?? "HTTP {$httpCode}");
         }
+
         return Result::ok($data);
     }
 }

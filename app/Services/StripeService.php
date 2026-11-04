@@ -1,13 +1,18 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services;
+
 use Phoenix\Core\Result;
 
-final class StripeService {
+final class StripeService
+{
     private string $apiKey;
     private string $baseUrl = 'https://api.stripe.com/v1';
 
-    public function __construct(?string $apiKey = null) {
+    public function __construct(?string $apiKey = null)
+    {
         $this->apiKey = $apiKey ?? (string) ($_ENV['STRIPE_SECRET_KEY'] ?? getenv('STRIPE_SECRET_KEY') ?: '');
     }
 
@@ -17,7 +22,7 @@ final class StripeService {
         string $successUrl,
         string $cancelUrl,
         array $metadata = [],
-        string $mode = 'payment'
+        string $mode = 'payment',
     ): Result {
         if (empty($this->apiKey)) {
             return Result::err('Stripe API key not configured');
@@ -33,7 +38,7 @@ final class StripeService {
         foreach ($lineItems as $i => $item) {
             $params["line_items[{$i}][price_data][currency]"] = $item['currency'] ?? 'usd';
             $params["line_items[{$i}][price_data][product_data][name]"] = $item['name'];
-            $params["line_items[{$i}][price_data][unit_amount]"] = (int)round(($item['amount'] ?? 0) * 100); // cents
+            $params["line_items[{$i}][price_data][unit_amount]"] = (int) round(($item['amount'] ?? 0) * 100); // cents
             $params["line_items[{$i}][quantity]"] = $item['quantity'] ?? 1;
         }
 
@@ -46,17 +51,20 @@ final class StripeService {
     }
 
     /** Retrieve a checkout session by ID */
-    public function getSession(string $sessionId): Result {
+    public function getSession(string $sessionId): Result
+    {
         return $this->request('GET', "/checkout/sessions/{$sessionId}");
     }
 
     /** Retrieve a payment intent */
-    public function getPaymentIntent(string $paymentIntentId): Result {
+    public function getPaymentIntent(string $paymentIntentId): Result
+    {
         return $this->request('GET', "/payment_intents/{$paymentIntentId}");
     }
 
     /** Verify webhook signature */
-    public function verifyWebhook(string $payload, string $sigHeader, string $webhookSecret): Result {
+    public function verifyWebhook(string $payload, string $sigHeader, string $webhookSecret): Result
+    {
         $parts = [];
         foreach (explode(',', $sigHeader) as $part) {
             [$key, $val] = explode('=', $part, 2);
@@ -72,13 +80,15 @@ final class StripeService {
             return Result::err('Webhook signature mismatch');
         }
         // Timestamp tolerance: 5 minutes
-        if (abs(time() - (int)$timestamp) > 300) {
+        if (abs(time() - (int) $timestamp) > 300) {
             return Result::err('Webhook timestamp too old');
         }
+
         return Result::ok(json_decode($payload, true));
     }
 
-    private function request(string $method, string $endpoint, array $params = []): Result {
+    private function request(string $method, string $endpoint, array $params = []): Result
+    {
         $ch = curl_init($this->baseUrl . $endpoint);
         $options = [
             CURLOPT_RETURNTRANSFER => true,
@@ -104,6 +114,7 @@ final class StripeService {
         if ($httpCode >= 400) {
             return Result::err($data['error']['message'] ?? "HTTP {$httpCode}");
         }
+
         return Result::ok($data);
     }
 }

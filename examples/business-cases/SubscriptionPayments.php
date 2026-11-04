@@ -76,7 +76,7 @@ echo '  payment captured: ' . ($paymentCaptured ? 'yes' : 'no (demo mode)') . "\
 // ---------------------------------------------------------------------------
 
 $subject = new ObservableSubject('subscription-lifecycle');
-$subject->attach(new class implements Observer {
+$subject->attach(new class () implements Observer {
     public function update(Subject $subject): void
     {
         $s = $subject->get_state();
