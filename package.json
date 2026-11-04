@@ -8,8 +8,11 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "screenshots": "node screenshots.js"
+    "test": "php vendor/bin/phpunit",
+    "test:examples": "php examples/business-cases/OrderProcessing.php && php examples/business-cases/SubscriptionPayments.php && php examples/business-cases/AnalyticsAggregation.php",
+    "screenshots": "node screenshots.js",
+    "workflow": "node admin-workflow.js",
+    "record": "node admin-workflow.js"
   },
   "repository": {
     "type": "git",

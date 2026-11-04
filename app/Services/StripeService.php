@@ -8,7 +8,7 @@ final class StripeService {
     private string $baseUrl = 'https://api.stripe.com/v1';
 
     public function __construct(?string $apiKey = null) {
-        $this->apiKey = $apiKey ?? ($_ENV['STRIPE_SECRET_KEY'] ?? getenv('STRIPE_SECRET_KEY') ?? '');
+        $this->apiKey = $apiKey ?? (string) ($_ENV['STRIPE_SECRET_KEY'] ?? getenv('STRIPE_SECRET_KEY') ?: '');
     }
 
     /** Create a Stripe Checkout Session (hosted payment page) */

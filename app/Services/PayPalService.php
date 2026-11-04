@@ -15,8 +15,8 @@ final class PayPalService {
         ?string $clientSecret = null,
         bool $sandbox = true
     ) {
-        $this->clientId = $clientId ?? ($_ENV['PAYPAL_CLIENT_ID'] ?? getenv('PAYPAL_CLIENT_ID') ?? '');
-        $this->clientSecret = $clientSecret ?? ($_ENV['PAYPAL_CLIENT_SECRET'] ?? getenv('PAYPAL_CLIENT_SECRET') ?? '');
+        $this->clientId = $clientId ?? (string) ($_ENV['PAYPAL_CLIENT_ID'] ?? getenv('PAYPAL_CLIENT_ID') ?: '');
+        $this->clientSecret = $clientSecret ?? (string) ($_ENV['PAYPAL_CLIENT_SECRET'] ?? getenv('PAYPAL_CLIENT_SECRET') ?: '');
         $this->baseUrl = $sandbox
             ? 'https://api-m.sandbox.paypal.com'
             : 'https://api-m.paypal.com';
